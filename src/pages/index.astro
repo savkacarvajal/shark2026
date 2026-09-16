@@ -1,17 +1,96 @@
 ---
-
+const base = import.meta.env.BASE_URL;
 ---
 
-<html lang="en">
+<html lang="es">
 	<head>
 		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
+		<link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<title>Shark2026</title>
 	</head>
 	<body>
-		<h1>Astro</h1>
+		<main>
+			<div class="waves" aria-hidden="true"></div>
+			<div class="content">
+				<span class="fin" aria-hidden="true">🦈</span>
+				<h1>Shark<span>2026</span></h1>
+				<p>Sistema de inventario y ventas</p>
+				<p class="status">En construcción — próximamente: login, inventario y ventas</p>
+			</div>
+		</main>
 	</body>
 </html>
+
+<style>
+	:root {
+		color-scheme: dark;
+	}
+
+	html,
+	body {
+		margin: 0;
+		height: 100%;
+		font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	}
+
+	main {
+		min-height: 100vh;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		overflow: hidden;
+		background: linear-gradient(180deg, #041c32 0%, #04293a 45%, #064663 100%);
+	}
+
+	.waves {
+		position: absolute;
+		inset: 0;
+		background:
+			radial-gradient(ellipse at 20% 80%, rgba(59, 130, 246, 0.25), transparent 60%),
+			radial-gradient(ellipse at 80% 20%, rgba(14, 165, 233, 0.2), transparent 55%),
+			radial-gradient(ellipse at 50% 100%, rgba(3, 105, 161, 0.35), transparent 60%);
+		pointer-events: none;
+	}
+
+	.content {
+		position: relative;
+		z-index: 1;
+		text-align: center;
+		padding: 2rem;
+	}
+
+	.fin {
+		font-size: 3.5rem;
+		display: inline-block;
+		margin-bottom: 0.5rem;
+		filter: drop-shadow(0 0 20px rgba(56, 189, 248, 0.5));
+	}
+
+	h1 {
+		font-size: clamp(2.5rem, 6vw, 4rem);
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		margin: 0;
+		color: #e0f2fe;
+		text-shadow: 0 0 30px rgba(56, 189, 248, 0.35);
+	}
+
+	h1 span {
+		color: #38bdf8;
+	}
+
+	.content p {
+		color: #93c5fd;
+		font-size: 1.1rem;
+		margin: 0.75rem 0 0;
+	}
+
+	.status {
+		color: #60a5fa;
+		font-size: 0.9rem;
+		opacity: 0.8;
+	}
+</style>
