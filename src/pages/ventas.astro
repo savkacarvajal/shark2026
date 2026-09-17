@@ -53,6 +53,11 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 				</thead>
 				<tbody id="cart-body"></tbody>
 			</table>
+			<label class="discount-label">
+				Descuento (CLP, opcional)
+				<input type="number" id="discount-input" min="0" step="1" value="0" />
+			</label>
+			<p class="subtotal" id="subtotal-line" hidden>Subtotal: $<span id="subtotal-label">0</span></p>
 			<p class="total">Total: $<span id="total-label">0</span></p>
 			<button type="button" id="submit-sale-btn" class="btn" disabled>Registrar venta</button>
 			<p class="error" id="error-msg" hidden></p>
@@ -84,6 +89,9 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 	const qtyInput = document.getElementById("qty-input") as HTMLInputElement;
 	const cartBody = document.getElementById("cart-body") as HTMLTableSectionElement;
 	const totalLabel = document.getElementById("total-label") as HTMLSpanElement;
+	const subtotalLine = document.getElementById("subtotal-line") as HTMLParagraphElement;
+	const subtotalLabel = document.getElementById("subtotal-label") as HTMLSpanElement;
+	const discountInput = document.getElementById("discount-input") as HTMLInputElement;
 	const submitBtn = document.getElementById("submit-sale-btn") as HTMLButtonElement;
 	const errorMsg = document.getElementById("error-msg") as HTMLParagraphElement;
 	const okMsg = document.getElementById("ok-msg") as HTMLParagraphElement;
@@ -97,19 +105,23 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 
 	function renderCart() {
 		cartBody.innerHTML = "";
-		let total = 0;
+		let subtotal = 0;
 		cart.forEach((item, idx) => {
-			const subtotal = item.qty * item.unitPrice;
-			total += subtotal;
+			const lineTotal = item.qty * item.unitPrice;
+			subtotal += lineTotal;
 			const row = document.createElement("tr");
 			row.innerHTML = `
 				<td>${escapeHtml(item.productName)}</td>
 				<td>${item.qty}</td>
-				<td>$${subtotal.toLocaleString("es-CL")}</td>
+				<td>$${lineTotal.toLocaleString("es-CL")}</td>
 				<td><button type="button" class="btn btn-secondary remove-btn" data-idx="${idx}">✕</button></td>
 			`;
 			cartBody.appendChild(row);
 		});
+		const discount = Math.max(0, Math.min(subtotal, Number(discountInput.value) || 0));
+		const total = subtotal - discount;
+		subtotalLine.hidden = discount === 0;
+		subtotalLabel.textContent = subtotal.toLocaleString("es-CL");
 		totalLabel.textContent = total.toLocaleString("es-CL");
 		submitBtn.disabled = cart.length === 0 || !sellerId;
 		cartBody.querySelectorAll<HTMLButtonElement>(".remove-btn").forEach((btn) => {
@@ -119,6 +131,8 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 			});
 		});
 	}
+
+	discountInput.addEventListener("input", renderCart);
 
 	document.getElementById("add-item-btn")?.addEventListener("click", () => {
 		errorMsg.hidden = true;
@@ -154,16 +168,31 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 		okMsg.hidden = true;
 		submitBtn.disabled = true;
 		const seller = sellerSelect.selectedOptions[0];
+		const subtotal = cart.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+		const discount = Math.max(0, Math.min(subtotal, Number(discountInput.value) || 0));
+
+		if (isPreviewMode()) {
+			cart = [];
+			discountInput.value = "0";
+			renderCart();
+			okMsg.textContent = "(Vista previa) Venta registrada.";
+			okMsg.hidden = false;
+			submitBtn.disabled = cart.length === 0 || !sellerId;
+			return;
+		}
+
 		try {
 			await createSale({
 				moduleId,
 				sellerId,
 				sellerName: seller?.textContent ?? "",
 				items: cart,
+				discount,
 				paymentMethod: (document.getElementById("payment-select") as HTMLSelectElement).value as PaymentMethod,
 				createdByUid: uid,
 			});
 			cart = [];
+			discountInput.value = "0";
 			renderCart();
 			okMsg.textContent = "Venta registrada.";
 			okMsg.hidden = false;
@@ -264,6 +293,16 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 		margin-bottom: 0.75rem;
 		color: var(--text-dim);
 		font-size: 0.9rem;
+	}
+
+	.discount-label input {
+		max-width: 160px;
+	}
+
+	.subtotal {
+		color: var(--text-dim);
+		text-decoration: line-through;
+		margin-bottom: 0.2rem;
 	}
 
 	.total {

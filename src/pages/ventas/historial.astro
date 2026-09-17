@@ -24,6 +24,7 @@ import { MODULES } from "../../lib/constants";
 				<th>Vendedor</th>
 				<th>Productos</th>
 				<th>Medio de pago</th>
+				<th>Descuento</th>
 				<th>Total</th>
 			</tr>
 		</thead>
@@ -58,6 +59,7 @@ import { MODULES } from "../../lib/constants";
 				<td>${escapeHtml(sale.sellerName)}</td>
 				<td>${itemsSummary}</td>
 				<td>${escapeHtml(paymentName(sale.paymentMethod))}</td>
+				<td>${sale.discount ? `-$${sale.discount.toLocaleString("es-CL")}` : "—"}</td>
 				<td>$${sale.total.toLocaleString("es-CL")}</td>
 			`;
 			body.appendChild(row);

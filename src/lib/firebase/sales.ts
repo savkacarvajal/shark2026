@@ -25,6 +25,7 @@ export interface Sale {
 	sellerId: string;
 	sellerName: string;
 	items: SaleItem[];
+	discount: number;
 	total: number;
 	paymentMethod: PaymentMethod;
 	createdAt: Timestamp;
@@ -46,10 +47,12 @@ export async function createSale(input: {
 	sellerId: string;
 	sellerName: string;
 	items: SaleItem[];
+	discount?: number;
 	paymentMethod: PaymentMethod;
 	createdByUid: string;
 }) {
 	const { moduleId, items } = input;
+	const discount = Math.max(0, input.discount ?? 0);
 
 	await runTransaction(db, async (tx) => {
 		const stockRefs = items.map((item) => doc(db, "modules", moduleId, "stock", item.productId));
@@ -67,13 +70,15 @@ export async function createSale(input: {
 			tx.set(stockRefs[i], { quantity: available - items[i].qty }, { merge: true });
 		});
 
-		const total = items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
+		const subtotal = items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
+		const total = Math.max(0, subtotal - discount);
 		const saleRef = doc(collection(db, "modules", moduleId, "sales"));
 		tx.set(saleRef, {
 			moduleId,
 			sellerId: input.sellerId,
 			sellerName: input.sellerName,
 			items,
+			discount,
 			total,
 			paymentMethod: input.paymentMethod,
 			createdAt: new Date(),
