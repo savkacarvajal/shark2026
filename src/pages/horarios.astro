@@ -185,7 +185,11 @@ import AppLayout from "../layouts/AppLayout.astro";
 				const moduleRows = MODULES.map((m) => {
 					const names = shifts
 						.filter((s) => s.date === d.date && s.moduleId === m.id)
-						.map((s) => escapeHtml(s.sellerName))
+						.map((s) => {
+							const hasHours = Boolean(s.start || s.end);
+							const label = hasHours ? `${s.sellerName} (${s.start}–${s.end})` : s.sellerName;
+							return escapeHtml(label);
+						})
 						.join(", ");
 					return `
 						<div class="calendar-row" style="border-left-color:${MODULE_COLORS[m.id]}">
