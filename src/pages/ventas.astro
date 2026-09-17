@@ -64,6 +64,26 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 			<p class="ok" id="ok-msg" hidden></p>
 		</div>
 	</div>
+
+	<h2>Registrar merma</h2>
+	<p class="dim">Descuenta stock por productos dañados, vencidos, perdidos, etc. Queda registrado con el motivo.</p>
+	<div class="card form-row">
+		<label>
+			Producto
+			<select id="merma-product-select"></select>
+		</label>
+		<label>
+			Cantidad
+			<input type="number" id="merma-qty-input" min="1" step="1" value="1" />
+		</label>
+		<label class="grow">
+			Motivo / observación
+			<input type="text" id="merma-reason-input" placeholder="Ej: pantalla rota, robo, vencido..." />
+		</label>
+		<button type="button" id="merma-submit-btn" class="btn btn-secondary">Registrar merma</button>
+	</div>
+	<p class="error" id="merma-error" hidden></p>
+	<p class="ok" id="merma-ok" hidden></p>
 </AppLayout>
 
 <script>
@@ -72,6 +92,7 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 	import { watchSellers, type Seller } from "../lib/firebase/sellers";
 	import { watchStock } from "../lib/firebase/stock";
 	import { createSale, InsufficientStockError, type SaleItem } from "../lib/firebase/sales";
+	import { registerMerma } from "../lib/firebase/movements";
 	import { MODULES, type PaymentMethod } from "../lib/constants";
 	import { MOCK_PRODUCTS, MOCK_STOCK, MOCK_SELLERS } from "../lib/mockPreviewData";
 	import { escapeHtml } from "../lib/escapeHtml";
@@ -96,10 +117,23 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 	const errorMsg = document.getElementById("error-msg") as HTMLParagraphElement;
 	const okMsg = document.getElementById("ok-msg") as HTMLParagraphElement;
 
+	const mermaProductSelect = document.getElementById("merma-product-select") as HTMLSelectElement;
+	const mermaQtyInput = document.getElementById("merma-qty-input") as HTMLInputElement;
+	const mermaReasonInput = document.getElementById("merma-reason-input") as HTMLInputElement;
+	const mermaError = document.getElementById("merma-error") as HTMLParagraphElement;
+	const mermaOk = document.getElementById("merma-ok") as HTMLParagraphElement;
+
 	function renderProductOptions() {
 		productSelect.innerHTML = products
 			.filter((p) => p.active)
 			.map((p) => `<option value="${p.id}">${escapeHtml(p.name)} — $${p.price.toLocaleString("es-CL")}</option>`)
+			.join("");
+	}
+
+	function renderMermaProductOptions() {
+		mermaProductSelect.innerHTML = products
+			.filter((p) => p.active)
+			.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`)
 			.join("");
 	}
 
@@ -204,6 +238,45 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 		}
 	});
 
+	document.getElementById("merma-submit-btn")?.addEventListener("click", async () => {
+		mermaError.hidden = true;
+		mermaOk.hidden = true;
+		const productId = mermaProductSelect.value;
+		const product = products.find((p) => p.id === productId);
+		const qty = Number(mermaQtyInput.value);
+		const reason = mermaReasonInput.value.trim();
+
+		if (!product || !qty || qty < 1 || !reason) {
+			mermaError.textContent = "Completa producto, cantidad y motivo.";
+			mermaError.hidden = false;
+			return;
+		}
+
+		if (isPreviewMode()) {
+			mermaOk.textContent = "(Vista previa) Merma registrada.";
+			mermaOk.hidden = false;
+			mermaReasonInput.value = "";
+			return;
+		}
+
+		try {
+			await registerMerma({
+				moduleId,
+				productId,
+				productName: product.name,
+				qty,
+				reason,
+				createdByUid: uid,
+			});
+			mermaOk.textContent = "Merma registrada.";
+			mermaOk.hidden = false;
+			mermaReasonInput.value = "";
+		} catch (err) {
+			mermaError.textContent = err instanceof InsufficientStockError ? err.message : "No se pudo registrar la merma.";
+			mermaError.hidden = false;
+		}
+	});
+
 	function watchModule(newModuleId: string) {
 		moduleId = newModuleId;
 		cart = [];
@@ -224,6 +297,7 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 		if (isPreviewMode()) {
 			products = MOCK_PRODUCTS;
 			renderProductOptions();
+			renderMermaProductOptions();
 			const active = MOCK_SELLERS.filter((s) => s.active);
 			sellerSelect.innerHTML = active.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
 			sellerId = active[0]?.id ?? "";
@@ -242,6 +316,7 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 		watchProducts((p) => {
 			products = p;
 			renderProductOptions();
+			renderMermaProductOptions();
 		});
 		watchSellers((sellers: Seller[]) => {
 			const active = sellers.filter((s) => s.active);
@@ -308,6 +383,36 @@ import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 	.total {
 		font-weight: 700;
 		font-size: 1.1rem;
+	}
+
+	.dim {
+		color: var(--text-dim);
+		font-size: 0.9rem;
+	}
+
+	h2 {
+		margin-top: 2rem;
+	}
+
+	.form-row {
+		display: flex;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		margin-bottom: 0.75rem;
+	}
+
+	.form-row label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		font-size: 0.85rem;
+		color: var(--text-dim);
+	}
+
+	.form-row .grow {
+		flex: 1;
+		min-width: 200px;
 	}
 
 	.ok {
