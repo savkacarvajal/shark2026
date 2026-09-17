@@ -1,6 +1,7 @@
 export const MODULES = [
-	{ id: "plaza-sol", name: "Mall Plaza Sol" },
-	{ id: "plaza-centro", name: "Mall Plaza Centro" },
+	{ id: "centro", name: "Centro" },
+	{ id: "plaza-sol", name: "Mall Plaza – Sol" },
+	{ id: "plaza-punto", name: "Mall Plaza – Punto" },
 	{ id: "vivo-coquimbo", name: "Mall Vivo Coquimbo" },
 ] as const;
 

@@ -26,20 +26,60 @@ import { MODULES } from "../lib/constants";
 		</thead>
 		<tbody id="stock-body"></tbody>
 	</table>
+
+	<h2>Registrar merma</h2>
+	<p class="dim">Descuenta stock por productos dañados, vencidos, perdidos, etc. Queda registrado con el motivo.</p>
+	<div class="card form-row">
+		<label>
+			Producto
+			<select id="merma-product-select"></select>
+		</label>
+		<label>
+			Cantidad
+			<input type="number" id="merma-qty-input" min="1" step="1" value="1" />
+		</label>
+		<label class="grow">
+			Motivo / observación
+			<input type="text" id="merma-reason-input" placeholder="Ej: pantalla rota, robo, vencido..." />
+		</label>
+		<button type="button" id="merma-submit-btn" class="btn">Registrar merma</button>
+	</div>
+	<p class="error" id="merma-error" hidden></p>
+	<p class="ok" id="merma-ok" hidden></p>
+
+	<table class="card">
+		<thead>
+			<tr>
+				<th>Fecha</th>
+				<th>Producto</th>
+				<th>Cantidad</th>
+				<th>Motivo</th>
+			</tr>
+		</thead>
+		<tbody id="mermas-body"></tbody>
+	</table>
 </AppLayout>
 
 <script>
-	import { requireAuth } from "../lib/guards";
+	import { requireAuth, isPreviewMode } from "../lib/guards";
 	import { watchProducts, type Product } from "../lib/firebase/products";
 	import { watchStock, setStock } from "../lib/firebase/stock";
+	import { registerMerma, watchRecentMermas, type Movement } from "../lib/firebase/movements";
+	import { InsufficientStockError } from "../lib/firebase/sales";
 	import { PRODUCT_CATEGORIES, MODULES } from "../lib/constants";
+	import { MOCK_PRODUCTS, MOCK_STOCK } from "../lib/mockPreviewData";
 
 	let unsubStock: (() => void) | null = null;
+	let unsubMermas: (() => void) | null = null;
 	let products: Product[] = [];
 	let currentModuleId = "";
 	let uid = "";
 
-	function render(stock: Record<string, number>) {
+	const mermaProductSelect = document.getElementById("merma-product-select") as HTMLSelectElement;
+	const mermaError = document.getElementById("merma-error") as HTMLParagraphElement;
+	const mermaOk = document.getElementById("merma-ok") as HTMLParagraphElement;
+
+	function renderStock(stock: Record<string, number>) {
 		const body = document.getElementById("stock-body") as HTMLTableSectionElement;
 		body.innerHTML = "";
 		for (const p of products.filter((p) => p.active)) {
@@ -65,17 +105,94 @@ import { MODULES } from "../lib/constants";
 		});
 	}
 
+	function renderMermaProductOptions() {
+		mermaProductSelect.innerHTML = products
+			.filter((p) => p.active)
+			.map((p) => `<option value="${p.id}">${p.name}</option>`)
+			.join("");
+	}
+
+	function renderMermas(movements: Movement[]) {
+		const body = document.getElementById("mermas-body") as HTMLTableSectionElement;
+		body.innerHTML = "";
+		for (const m of movements) {
+			const date = m.createdAt?.toDate ? m.createdAt.toDate() : new Date();
+			const row = document.createElement("tr");
+			row.innerHTML = `
+				<td>${date.toLocaleString("es-CL")}</td>
+				<td>${m.productName}</td>
+				<td>${m.qty}</td>
+				<td>${m.reason}</td>
+			`;
+			body.appendChild(row);
+		}
+	}
+
 	function watchModule(moduleId: string) {
 		currentModuleId = moduleId;
+		if (isPreviewMode()) {
+			renderStock(MOCK_STOCK);
+			renderMermas([]);
+			return;
+		}
 		unsubStock?.();
-		unsubStock = watchStock(moduleId, render);
+		unsubStock = watchStock(moduleId, renderStock);
+		unsubMermas?.();
+		unsubMermas = watchRecentMermas(moduleId, renderMermas);
 	}
+
+	document.getElementById("merma-submit-btn")?.addEventListener("click", async () => {
+		mermaError.hidden = true;
+		mermaOk.hidden = true;
+		const productId = mermaProductSelect.value;
+		const product = products.find((p) => p.id === productId);
+		const qty = Number((document.getElementById("merma-qty-input") as HTMLInputElement).value);
+		const reasonInput = document.getElementById("merma-reason-input") as HTMLInputElement;
+		const reason = reasonInput.value.trim();
+
+		if (!product || !qty || qty < 1 || !reason) {
+			mermaError.textContent = "Completa producto, cantidad y motivo.";
+			mermaError.hidden = false;
+			return;
+		}
+
+		if (isPreviewMode()) {
+			mermaOk.textContent = "(Vista previa) Merma registrada.";
+			mermaOk.hidden = false;
+			reasonInput.value = "";
+			return;
+		}
+
+		try {
+			await registerMerma({
+				moduleId: currentModuleId,
+				productId,
+				productName: product.name,
+				qty,
+				reason,
+				createdByUid: uid,
+			});
+			mermaOk.textContent = "Merma registrada.";
+			mermaOk.hidden = false;
+			reasonInput.value = "";
+		} catch (err) {
+			mermaError.textContent = err instanceof InsufficientStockError ? err.message : "No se pudo registrar la merma.";
+			mermaError.hidden = false;
+		}
+	});
 
 	requireAuth().then(({ user, claims }) => {
 		uid = user.uid;
-		watchProducts((p) => {
-			products = p;
-		});
+
+		if (isPreviewMode()) {
+			products = MOCK_PRODUCTS;
+			renderMermaProductOptions();
+		} else {
+			watchProducts((p) => {
+				products = p;
+				renderMermaProductOptions();
+			});
+		}
 
 		if (claims.role === "admin") {
 			const switcher = document.getElementById("module-switcher") as HTMLDivElement;
@@ -99,5 +216,39 @@ import { MODULES } from "../lib/constants";
 		align-items: center;
 		gap: 0.5rem;
 		color: var(--text-dim);
+	}
+
+	.dim {
+		color: var(--text-dim);
+		font-size: 0.9rem;
+	}
+
+	h2 {
+		margin-top: 2rem;
+	}
+
+	.form-row {
+		display: flex;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		margin-bottom: 0.75rem;
+	}
+
+	.form-row label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		font-size: 0.85rem;
+		color: var(--text-dim);
+	}
+
+	.form-row .grow {
+		flex: 1;
+		min-width: 200px;
+	}
+
+	.ok {
+		color: var(--ok);
 	}
 </style>

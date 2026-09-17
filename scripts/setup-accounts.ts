@@ -1,6 +1,6 @@
 /**
  * One-time (and safely re-runnable) provisioning script.
- * Creates the 5 real accounts, sets their role/moduleId custom claims,
+ * Creates the 6 real accounts, sets their role/moduleId custom claims,
  * and seeds the modules/users/sellers documents.
  *
  * Usage:
@@ -46,9 +46,10 @@ interface AccountSpec {
 const ACCOUNTS: AccountSpec[] = [
 	{ email: "admin1@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-1", displayName: "Admin 1", role: "admin", moduleId: null },
 	{ email: "admin2@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-2", displayName: "Admin 2", role: "admin", moduleId: null },
-	{ email: "plaza-sol@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-3", displayName: "Mall Plaza Sol", role: "module", moduleId: "plaza-sol" },
-	{ email: "plaza-centro@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-4", displayName: "Mall Plaza Centro", role: "module", moduleId: "plaza-centro" },
-	{ email: "vivo-coquimbo@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-5", displayName: "Mall Vivo Coquimbo", role: "module", moduleId: "vivo-coquimbo" },
+	{ email: "centro@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-3", displayName: "Centro", role: "module", moduleId: "centro" },
+	{ email: "plaza-sol@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-4", displayName: "Mall Plaza – Sol", role: "module", moduleId: "plaza-sol" },
+	{ email: "plaza-punto@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-5", displayName: "Mall Plaza – Punto", role: "module", moduleId: "plaza-punto" },
+	{ email: "vivo-coquimbo@shark2026.local", password: "CAMBIAR-ESTA-CLAVE-6", displayName: "Mall Vivo Coquimbo", role: "module", moduleId: "vivo-coquimbo" },
 ];
 
 async function upsertAccount(spec: AccountSpec) {

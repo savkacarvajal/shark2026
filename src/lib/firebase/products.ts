@@ -17,6 +17,7 @@ export interface Product {
 	name: string;
 	category: ProductCategory;
 	price: number;
+	description?: string;
 	active: boolean;
 	createdAt?: Timestamp;
 }
@@ -30,13 +31,26 @@ export function watchProducts(callback: (products: Product[]) => void) {
 	});
 }
 
-export function createProduct(input: { sku: string; name: string; category: ProductCategory; price: number }) {
+export function createProduct(input: {
+	sku: string;
+	name: string;
+	category: ProductCategory;
+	price: number;
+	description?: string;
+}) {
 	return addDoc(productsRef, { ...input, active: true, createdAt: new Date() });
 }
 
 export function updateProduct(
 	productId: string,
-	input: Partial<{ sku: string; name: string; category: ProductCategory; price: number; active: boolean }>,
+	input: Partial<{
+		sku: string;
+		name: string;
+		category: ProductCategory;
+		price: number;
+		description: string;
+		active: boolean;
+	}>,
 ) {
 	return updateDoc(doc(db, "products", productId), input);
 }

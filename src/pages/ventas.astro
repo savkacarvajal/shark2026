@@ -53,12 +53,13 @@ import { PAYMENT_METHODS } from "../lib/constants";
 </AppLayout>
 
 <script>
-	import { requireAuth } from "../lib/guards";
+	import { requireAuth, isPreviewMode } from "../lib/guards";
 	import { watchProducts, type Product } from "../lib/firebase/products";
 	import { watchSellers, type Seller } from "../lib/firebase/sellers";
 	import { watchStock } from "../lib/firebase/stock";
 	import { createSale, InsufficientStockError, type SaleItem } from "../lib/firebase/sales";
 	import type { PaymentMethod } from "../lib/constants";
+	import { MOCK_PRODUCTS, MOCK_STOCK, MOCK_SELLERS } from "../lib/mockPreviewData";
 
 	let products: Product[] = [];
 	let stock: Record<string, number> = {};
@@ -167,9 +168,20 @@ import { PAYMENT_METHODS } from "../lib/constants";
 		uid = user.uid;
 		moduleId = claims.moduleId ?? "";
 
-		if (!moduleId) {
+		if (!moduleId && !isPreviewMode()) {
 			errorMsg.textContent = "Tu cuenta no tiene un módulo asignado.";
 			errorMsg.hidden = false;
+			return;
+		}
+
+		if (isPreviewMode()) {
+			products = MOCK_PRODUCTS;
+			renderProductOptions();
+			stock = MOCK_STOCK;
+			const active = MOCK_SELLERS.filter((s) => s.active);
+			sellerSelect.innerHTML = active.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+			sellerId = active[0]?.id ?? "";
+			renderCart();
 			return;
 		}
 

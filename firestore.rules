@@ -28,6 +28,11 @@ service cloud.firestore {
         allow read, create: if isAdmin() || isModule(moduleId);
         allow update, delete: if isAdmin();
       }
+
+      match /movements/{movementId} {
+        allow read, create: if isAdmin() || isModule(moduleId);
+        allow update, delete: if isAdmin();
+      }
     }
 
     // Admin cross-module views (collection group queries)

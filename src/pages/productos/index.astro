@@ -13,6 +13,7 @@ import { PRODUCT_CATEGORIES } from "../../lib/constants";
 			{PRODUCT_CATEGORIES.map((c) => <option value={c.id}>{c.name}</option>)}
 		</select>
 		<input id="price" type="number" min="0" step="1" placeholder="Precio (CLP)" required />
+		<input id="description" placeholder="Descripción / observación (opcional)" class="grow" />
 		<button type="submit" class="btn">Agregar</button>
 	</form>
 	<p class="error" id="error-msg" hidden></p>
@@ -24,6 +25,7 @@ import { PRODUCT_CATEGORIES } from "../../lib/constants";
 				<th>Nombre</th>
 				<th>Categoría</th>
 				<th>Precio</th>
+				<th>Descripción / observación</th>
 				<th>Activo</th>
 			</tr>
 		</thead>
@@ -32,33 +34,45 @@ import { PRODUCT_CATEGORIES } from "../../lib/constants";
 </AppLayout>
 
 <script>
-	import { requireAuth } from "../../lib/guards";
-	import { watchProducts, createProduct, updateProduct } from "../../lib/firebase/products";
+	import { requireAuth, isPreviewMode } from "../../lib/guards";
+	import { watchProducts, createProduct, updateProduct, type Product } from "../../lib/firebase/products";
 	import { PRODUCT_CATEGORIES, type ProductCategory } from "../../lib/constants";
+	import { MOCK_PRODUCTS } from "../../lib/mockPreviewData";
 
-	requireAuth({ adminOnly: true }).then(() => {
+	function renderProducts(products: Product[]) {
 		const body = document.getElementById("products-body") as HTMLTableSectionElement;
-
-		watchProducts((products) => {
-			body.innerHTML = "";
-			for (const p of products) {
-				const row = document.createElement("tr");
-				const categoryName = PRODUCT_CATEGORIES.find((c) => c.id === p.category)?.name ?? p.category;
-				row.innerHTML = `
-					<td>${p.sku}</td>
-					<td>${p.name}</td>
-					<td>${categoryName}</td>
-					<td>$${p.price.toLocaleString("es-CL")}</td>
-					<td><input type="checkbox" ${p.active ? "checked" : ""} data-id="${p.id}" class="active-toggle" /></td>
-				`;
-				body.appendChild(row);
-			}
-			body.querySelectorAll<HTMLInputElement>(".active-toggle").forEach((el) => {
-				el.addEventListener("change", () => {
-					updateProduct(el.dataset.id as string, { active: el.checked });
-				});
+		body.innerHTML = "";
+		for (const p of products) {
+			const row = document.createElement("tr");
+			const categoryName = PRODUCT_CATEGORIES.find((c) => c.id === p.category)?.name ?? p.category;
+			row.innerHTML = `
+				<td>${p.sku}</td>
+				<td>${p.name}</td>
+				<td>${categoryName}</td>
+				<td>$${p.price.toLocaleString("es-CL")}</td>
+				<td><input type="text" value="${p.description ?? ""}" data-id="${p.id}" class="description-input" placeholder="Sin observaciones" /></td>
+				<td><input type="checkbox" ${p.active ? "checked" : ""} data-id="${p.id}" class="active-toggle" /></td>
+			`;
+			body.appendChild(row);
+		}
+		body.querySelectorAll<HTMLInputElement>(".active-toggle").forEach((el) => {
+			el.addEventListener("change", () => {
+				updateProduct(el.dataset.id as string, { active: el.checked });
 			});
 		});
+		body.querySelectorAll<HTMLInputElement>(".description-input").forEach((el) => {
+			el.addEventListener("change", () => {
+				updateProduct(el.dataset.id as string, { description: el.value.trim() });
+			});
+		});
+	}
+
+	requireAuth({ adminOnly: true }).then(() => {
+		if (isPreviewMode()) {
+			renderProducts(MOCK_PRODUCTS);
+			return;
+		}
+		watchProducts(renderProducts);
 	});
 
 	const form = document.getElementById("create-form") as HTMLFormElement;
@@ -71,6 +85,7 @@ import { PRODUCT_CATEGORIES } from "../../lib/constants";
 		const name = (document.getElementById("name") as HTMLInputElement).value.trim();
 		const category = (document.getElementById("category") as HTMLSelectElement).value as ProductCategory;
 		const price = Number((document.getElementById("price") as HTMLInputElement).value);
+		const description = (document.getElementById("description") as HTMLInputElement).value.trim();
 
 		if (!sku || !name || !price) {
 			errorMsg.textContent = "Completa todos los campos.";
@@ -79,7 +94,7 @@ import { PRODUCT_CATEGORIES } from "../../lib/constants";
 		}
 
 		try {
-			await createProduct({ sku, name, category, price });
+			await createProduct({ sku, name, category, price, description: description || undefined });
 			form.reset();
 		} catch {
 			errorMsg.textContent = "No se pudo agregar el producto.";
@@ -103,7 +118,17 @@ import { PRODUCT_CATEGORIES } from "../../lib/constants";
 		min-width: 140px;
 	}
 
+	.form-row .grow {
+		flex: 2;
+		min-width: 220px;
+	}
+
 	table {
 		margin-top: 0.5rem;
+	}
+
+	.description-input {
+		width: 100%;
+		min-width: 160px;
 	}
 </style>
