@@ -4,9 +4,11 @@ import {
 	doc,
 	getDocs,
 	limit,
+	onSnapshot,
 	orderBy,
 	query,
 	runTransaction,
+	where,
 	type Timestamp,
 } from "firebase/firestore";
 import { db } from "./client";
@@ -102,4 +104,29 @@ export async function getAllSales(max = 100): Promise<Sale[]> {
 	const q = query(collectionGroup(db, "sales"), orderBy("createdAt", "desc"), limit(max));
 	const snap = await getDocs(q);
 	return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Sale, "id">) }));
+}
+
+function startOfToday() {
+	const d = new Date();
+	d.setHours(0, 0, 0, 0);
+	return d;
+}
+
+/** Live totals for one module's sales since midnight (local time). */
+export function watchModuleSalesToday(moduleId: string, callback: (sales: Sale[]) => void) {
+	const q = query(
+		collection(db, "modules", moduleId, "sales"),
+		where("createdAt", ">=", startOfToday()),
+	);
+	return onSnapshot(q, (snap) => {
+		callback(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Sale, "id">) })));
+	});
+}
+
+/** Admin-only: live totals for every module's sales since midnight (local time). */
+export function watchAllSalesToday(callback: (sales: Sale[]) => void) {
+	const q = query(collectionGroup(db, "sales"), where("createdAt", ">=", startOfToday()));
+	return onSnapshot(q, (snap) => {
+		callback(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Sale, "id">) })));
+	});
 }

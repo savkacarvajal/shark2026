@@ -5,6 +5,22 @@ import AppLayout from "../layouts/AppLayout.astro";
 <AppLayout title="Inicio">
 	<h1>Hola 👋</h1>
 	<p id="greeting" class="dim">Cargando...</p>
+
+	<div class="card today-summary">
+		<h2>Ventas de hoy</h2>
+		<p class="today-total">Total: $<span id="today-total">0</span></p>
+		<table id="today-breakdown" hidden>
+			<thead>
+				<tr>
+					<th>Módulo</th>
+					<th>Ventas</th>
+					<th>Total</th>
+				</tr>
+			</thead>
+			<tbody id="today-breakdown-body"></tbody>
+		</table>
+	</div>
+
 	<div class="grid">
 		<a class="card link" href={`${import.meta.env.BASE_URL}ventas`}>
 			<h3>Registrar venta</h3>
@@ -26,17 +42,66 @@ import AppLayout from "../layouts/AppLayout.astro";
 </AppLayout>
 
 <script>
-	import { requireAuth } from "../lib/guards";
+	import { requireAuth, isPreviewMode } from "../lib/guards";
 	import { MODULES } from "../lib/constants";
+	import { watchModuleSalesToday, watchAllSalesToday, type Sale } from "../lib/firebase/sales";
+
+	const todayTotal = document.getElementById("today-total") as HTMLSpanElement;
+	const breakdownTable = document.getElementById("today-breakdown") as HTMLTableElement;
+	const breakdownBody = document.getElementById("today-breakdown-body") as HTMLTableSectionElement;
+
+	function renderModuleTotal(sales: Sale[]) {
+		const total = sales.reduce((sum, s) => sum + s.total, 0);
+		todayTotal.textContent = total.toLocaleString("es-CL");
+	}
+
+	function renderAllTotals(sales: Sale[]) {
+		const total = sales.reduce((sum, s) => sum + s.total, 0);
+		todayTotal.textContent = total.toLocaleString("es-CL");
+
+		breakdownTable.hidden = false;
+		breakdownBody.innerHTML = "";
+		for (const m of MODULES) {
+			const moduleSales = sales.filter((s) => s.moduleId === m.id);
+			const moduleTotal = moduleSales.reduce((sum, s) => sum + s.total, 0);
+			const row = document.createElement("tr");
+			row.innerHTML = `
+				<td>${m.name}</td>
+				<td>${moduleSales.length}</td>
+				<td>$${moduleTotal.toLocaleString("es-CL")}</td>
+			`;
+			breakdownBody.appendChild(row);
+		}
+	}
 
 	requireAuth().then(({ claims }) => {
 		const greeting = document.getElementById("greeting");
-		if (!greeting) return;
+		if (greeting) {
+			if (claims.role === "admin") {
+				greeting.textContent = "Ves los 4 módulos.";
+			} else {
+				const moduleName = MODULES.find((m) => m.id === claims.moduleId)?.name;
+				greeting.textContent = `Estás en ${moduleName ?? "tu módulo"}.`;
+			}
+		}
+
+		if (isPreviewMode()) {
+			if (claims.role === "admin") {
+				renderAllTotals([
+					{ moduleId: "plaza-sol", total: 45000 } as Sale,
+					{ moduleId: "centro", total: 32000 } as Sale,
+					{ moduleId: "centro", total: 18000 } as Sale,
+				]);
+			} else {
+				renderModuleTotal([{ total: 25000 } as Sale]);
+			}
+			return;
+		}
+
 		if (claims.role === "admin") {
-			greeting.textContent = "Ves los 4 módulos.";
-		} else {
-			const moduleName = MODULES.find((m) => m.id === claims.moduleId)?.name;
-			greeting.textContent = `Estás en ${moduleName ?? "tu módulo"}.`;
+			watchAllSalesToday(renderAllTotals);
+		} else if (claims.moduleId) {
+			watchModuleSalesToday(claims.moduleId, renderModuleTotal);
 		}
 	});
 </script>
@@ -44,6 +109,21 @@ import AppLayout from "../layouts/AppLayout.astro";
 <style>
 	.dim {
 		color: var(--text-dim);
+	}
+
+	.today-summary {
+		margin-top: 1rem;
+	}
+
+	.today-summary h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1.1rem;
+	}
+
+	.today-total {
+		font-size: 1.5rem;
+		font-weight: 700;
+		margin: 0 0 0.5rem;
 	}
 
 	.grid {
