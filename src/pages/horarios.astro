@@ -104,13 +104,15 @@ import AppLayout from "../layouts/AppLayout.astro";
 				.map((d) => {
 					const shift = shifts.find((s) => s.sellerId === seller.id && s.date === d.date);
 					if (isAdmin) {
+						const hasHours = Boolean(shift?.start || shift?.end);
 						return `
 							<td class="shift-cell">
 								<select class="shift-module" data-seller="${seller.id}" data-date="${d.date}">
 									<option value="">—</option>
 									${MODULES.map((m) => `<option value="${m.id}" ${shift?.moduleId === m.id ? "selected" : ""}>${m.name}</option>`).join("")}
 								</select>
-								<div class="shift-times">
+								<button type="button" class="toggle-hours-btn" data-seller="${seller.id}" data-date="${d.date}">${hasHours ? "Editar hora" : "+ hora (turno parcial)"}</button>
+								<div class="shift-times" ${hasHours ? "" : "hidden"}>
 									<input type="time" class="shift-start" data-seller="${seller.id}" data-date="${d.date}" value="${escapeHtml(shift?.start ?? "")}" />
 									<input type="time" class="shift-end" data-seller="${seller.id}" data-date="${d.date}" value="${escapeHtml(shift?.end ?? "")}" />
 								</div>
@@ -143,6 +145,14 @@ import AppLayout from "../layouts/AppLayout.astro";
 					const seller = sellers.find((s) => s.id === sellerId);
 					if (!seller || isPreviewMode()) return;
 					setShift(sellerId, seller.name, moduleId, date, start, end);
+				});
+			});
+			scheduleBody.querySelectorAll<HTMLButtonElement>(".toggle-hours-btn").forEach((btn) => {
+				btn.addEventListener("click", () => {
+					const cell = btn.closest("td") as HTMLTableCellElement;
+					const timesDiv = cell.querySelector<HTMLDivElement>(".shift-times") as HTMLDivElement;
+					timesDiv.hidden = !timesDiv.hidden;
+					btn.textContent = timesDiv.hidden ? "+ hora (turno parcial)" : "Editar hora";
 				});
 			});
 		}
@@ -325,6 +335,18 @@ import AppLayout from "../layouts/AppLayout.astro";
 	.shift-module {
 		width: 100%;
 		margin-bottom: 0.3rem;
+	}
+
+	.toggle-hours-btn {
+		display: block;
+		background: none;
+		border: none;
+		padding: 0;
+		margin-bottom: 0.3rem;
+		color: var(--accent);
+		font-size: 0.75rem;
+		cursor: pointer;
+		text-align: left;
 	}
 
 	.shift-times {

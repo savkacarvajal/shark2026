@@ -1,10 +1,19 @@
 ---
 import AppLayout from "../layouts/AppLayout.astro";
-import { PAYMENT_METHODS } from "../lib/constants";
+import { PAYMENT_METHODS, MODULES } from "../lib/constants";
 ---
 
 <AppLayout title="Vender">
 	<h1>Registrar venta</h1>
+
+	<div class="toolbar" id="module-switcher" hidden>
+		<label>
+			Módulo:
+			<select id="module-select">
+				{MODULES.map((m) => <option value={m.id}>{m.name}</option>)}
+			</select>
+		</label>
+	</div>
 
 	<div class="grid">
 		<div class="card">
@@ -58,7 +67,7 @@ import { PAYMENT_METHODS } from "../lib/constants";
 	import { watchSellers, type Seller } from "../lib/firebase/sellers";
 	import { watchStock } from "../lib/firebase/stock";
 	import { createSale, InsufficientStockError, type SaleItem } from "../lib/firebase/sales";
-	import type { PaymentMethod } from "../lib/constants";
+	import { MODULES, type PaymentMethod } from "../lib/constants";
 	import { MOCK_PRODUCTS, MOCK_STOCK, MOCK_SELLERS } from "../lib/mockPreviewData";
 	import { escapeHtml } from "../lib/escapeHtml";
 
@@ -68,6 +77,7 @@ import { PAYMENT_METHODS } from "../lib/constants";
 	let moduleId = "";
 	let sellerId = "";
 	let uid = "";
+	let unsubStock: (() => void) | null = null;
 
 	const productSelect = document.getElementById("product-select") as HTMLSelectElement;
 	const sellerSelect = document.getElementById("seller-select") as HTMLSelectElement;
@@ -165,24 +175,38 @@ import { PAYMENT_METHODS } from "../lib/constants";
 		}
 	});
 
-	requireAuth().then(({ user, claims }) => {
-		uid = user.uid;
-		moduleId = claims.moduleId ?? "";
-
-		if (!moduleId && !isPreviewMode()) {
-			errorMsg.textContent = "Tu cuenta no tiene un módulo asignado.";
-			errorMsg.hidden = false;
+	function watchModule(newModuleId: string) {
+		moduleId = newModuleId;
+		cart = [];
+		renderCart();
+		if (isPreviewMode()) {
+			stock = MOCK_STOCK;
 			return;
 		}
+		unsubStock?.();
+		unsubStock = watchStock(moduleId, (s) => {
+			stock = s;
+		});
+	}
+
+	requireAuth().then(({ user, claims }) => {
+		uid = user.uid;
 
 		if (isPreviewMode()) {
 			products = MOCK_PRODUCTS;
 			renderProductOptions();
-			stock = MOCK_STOCK;
 			const active = MOCK_SELLERS.filter((s) => s.active);
 			sellerSelect.innerHTML = active.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
 			sellerId = active[0]?.id ?? "";
-			renderCart();
+			if (claims.role === "admin") {
+				const switcher = document.getElementById("module-switcher") as HTMLDivElement;
+				switcher.hidden = false;
+				const select = document.getElementById("module-select") as HTMLSelectElement;
+				select.addEventListener("change", () => watchModule(select.value));
+				watchModule(select.value || MODULES[0].id);
+			} else {
+				watchModule(claims.moduleId ?? MODULES[0].id);
+			}
 			return;
 		}
 
@@ -190,19 +214,37 @@ import { PAYMENT_METHODS } from "../lib/constants";
 			products = p;
 			renderProductOptions();
 		});
-		watchStock(moduleId, (s) => {
-			stock = s;
-		});
 		watchSellers((sellers: Seller[]) => {
 			const active = sellers.filter((s) => s.active);
 			sellerSelect.innerHTML = active.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
 			sellerId = active[0]?.id ?? "";
 			renderCart();
 		});
+
+		if (claims.role === "admin") {
+			const switcher = document.getElementById("module-switcher") as HTMLDivElement;
+			switcher.hidden = false;
+			const select = document.getElementById("module-select") as HTMLSelectElement;
+			select.addEventListener("change", () => watchModule(select.value));
+			watchModule(select.value || MODULES[0].id);
+		} else if (claims.moduleId) {
+			watchModule(claims.moduleId);
+		}
 	});
 </script>
 
 <style>
+	.toolbar {
+		margin-bottom: 1rem;
+	}
+
+	.toolbar label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--text-dim);
+	}
+
 	.grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
