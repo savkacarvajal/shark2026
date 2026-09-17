@@ -1,43 +1,59 @@
-# Astro Starter Kit: Minimal
+# Shark2026 🦈
+
+Sistema interno de inventario y ventas para los 3 módulos de la tienda:
+
+- Mall Plaza Sol
+- Mall Plaza Centro
+- Mall Vivo Coquimbo
+
+Permite registrar ventas (con vendedor y medio de pago), llevar el stock de productos por módulo, y administrar el catálogo. Sitio en vivo (demo, aún sin conectar a Firebase): https://savkacarvajal.github.io/shark2026/
+
+## Stack
+
+- **[Astro](https://astro.build)** — genera un sitio liviano, con poco JavaScript.
+- **[Firebase](https://firebase.google.com)** — Authentication (login) y Firestore (base de datos).
+- **GitHub Pages** — hosting gratis, se actualiza solo con cada `git push` a `master`.
+
+## Estructura del proyecto
+
+```
+src/
+  pages/            → cada archivo es una pantalla (login, ventas, inventario, etc.)
+  layouts/           → estructura visual compartida (menú, colores)
+  lib/
+    constants.ts      → módulos, categorías de productos y medios de pago
+    guards.ts          → protege páginas que requieren login
+    firebase/           → todo lo que habla con Firebase (auth, productos, stock, ventas)
+scripts/
+  setup-accounts.ts   → crea las 5 cuentas reales (2 administradoras + 3 módulos)
+firestore.rules       → reglas de seguridad de la base de datos
+```
+
+## Cómo correrlo localmente
 
 ```sh
-npm create astro@latest -- --template minimal
+npm install
+npm run dev
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Abre `http://localhost:4321`.
 
-## 🚀 Project Structure
+⚠️ Mientras no esté conectado Firebase (ver sección siguiente), el login y las páginas que dependen de datos no van a funcionar todavía — es normal.
 
-Inside of your Astro project, you'll see the following folders and files:
+## Conectar Firebase (pendiente)
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+1. Crear el proyecto en [console.firebase.google.com](https://console.firebase.google.com)
+2. Activar **Authentication** (método Correo/Contraseña) y **Firestore Database**
+3. Registrar una app web y copiar la configuración a un archivo `.env` (usar `.env.example` como base)
+4. Descargar la clave de cuenta de servicio y guardarla como `serviceAccountKey.json` en la raíz del proyecto (nunca se sube a GitHub)
+5. Correr `npm run setup-accounts` para crear las 5 cuentas reales
+6. Desplegar las reglas de seguridad: `npx firebase deploy --only firestore:rules,firestore:indexes`
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Comandos
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+| Comando | Qué hace |
+| :--- | :--- |
+| `npm run dev` | Corre el sitio en local para desarrollar |
+| `npm run build` | Genera la versión final en `./dist/` |
+| `npm run setup-accounts` | Crea/actualiza las 5 cuentas y sus permisos en Firebase |
+| `npx astro check` | Revisa errores de tipos en el código |
