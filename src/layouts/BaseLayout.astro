@@ -37,6 +37,11 @@ const base = import.meta.env.BASE_URL;
 		box-sizing: border-box;
 	}
 
+	/* Guarantees [hidden] wins over any component's own `display` rule, regardless of specificity ties. */
+	[hidden] {
+		display: none !important;
+	}
+
 	html,
 	body {
 		margin: 0;

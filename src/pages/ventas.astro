@@ -192,7 +192,7 @@ import { PAYMENT_METHODS } from "../lib/constants";
 		watchStock(moduleId, (s) => {
 			stock = s;
 		});
-		watchSellers(moduleId, (sellers: Seller[]) => {
+		watchSellers((sellers: Seller[]) => {
 			const active = sellers.filter((s) => s.active);
 			sellerSelect.innerHTML = active.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
 			sellerId = active[0]?.id ?? "";

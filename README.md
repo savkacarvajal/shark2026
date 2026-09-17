@@ -7,7 +7,7 @@ Sistema interno de inventario y ventas para los 4 módulos de la tienda:
 - Mall Plaza – Punto
 - Mall Vivo Coquimbo
 
-Permite registrar ventas (con vendedor y medio de pago), llevar el stock de productos por módulo, y administrar el catálogo. Sitio en vivo (demo, aún sin conectar a Firebase): https://savkacarvajal.github.io/shark2026/
+Permite registrar ventas (con vendedor y medio de pago), llevar el stock de productos por módulo, registrar merma, administrar el catálogo, y armar la planilla semanal de turnos (los vendedores son rotativos entre módulos) con registro de llegada/colación/salida. Sitio en vivo (demo, aún sin conectar a Firebase): https://savkacarvajal.github.io/shark2026/
 
 ## Stack
 

@@ -1,0 +1,390 @@
+---
+import AppLayout from "../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Horarios">
+	<h1>Horarios</h1>
+
+	<div id="sellers-admin" hidden>
+		<h2>Vendedores</h2>
+		<form id="add-seller-form" class="card form-row">
+			<input id="new-seller-name" placeholder="Nombre del vendedor" class="grow" required />
+			<button type="submit" class="btn">Agregar</button>
+		</form>
+		<div class="card seller-chip-list" id="sellers-list"></div>
+	</div>
+
+	<h2>Planilla semanal</h2>
+	<p class="dim">Los vendedores son rotativos: cada casillero indica en qué módulo trabajan ese día.</p>
+	<div class="toolbar">
+		<button type="button" id="prev-week-btn" class="btn btn-secondary">‹ Semana anterior</button>
+		<span id="week-label" class="week-label"></span>
+		<button type="button" id="next-week-btn" class="btn btn-secondary">Semana siguiente ›</button>
+	</div>
+
+	<div class="card table-wrap">
+		<table id="schedule-table">
+			<thead>
+				<tr id="schedule-head"></tr>
+			</thead>
+			<tbody id="schedule-body"></tbody>
+		</table>
+	</div>
+
+	<div id="attendance-section" hidden>
+		<h2>Marcar registro</h2>
+		<div class="card form-row">
+			<label>
+				Vendedor
+				<select id="attendance-seller-select"></select>
+			</label>
+			<div class="attendance-buttons" id="attendance-buttons"></div>
+		</div>
+		<p class="error" id="attendance-error" hidden></p>
+		<p class="ok" id="attendance-ok" hidden></p>
+
+		<h3>Registro de hoy</h3>
+		<table class="card">
+			<thead>
+				<tr>
+					<th>Hora</th>
+					<th>Vendedor</th>
+					<th>Evento</th>
+				</tr>
+			</thead>
+			<tbody id="attendance-body"></tbody>
+		</table>
+	</div>
+</AppLayout>
+
+<script>
+	import { requireAuth, isPreviewMode } from "../lib/guards";
+	import { watchSellers, addSeller, setSellerActive, type Seller } from "../lib/firebase/sellers";
+	import {
+		watchWeekShifts,
+		setShift,
+		watchDayAttendance,
+		markAttendance,
+		getWeekDays,
+		todayString,
+		ATTENDANCE_EVENTS,
+		type Shift,
+		type AttendanceEvent,
+		type AttendanceEventType,
+	} from "../lib/firebase/schedule";
+	import { MODULES } from "../lib/constants";
+	import { MOCK_SELLERS, MOCK_SHIFTS } from "../lib/mockPreviewData";
+
+	let weekOffset = 0;
+	let currentModuleId = "";
+	let isAdmin = false;
+	let uid = "";
+	let sellers: Seller[] = [];
+	let shifts: Shift[] = [];
+	let unsubShifts: (() => void) | null = null;
+
+	const weekLabel = document.getElementById("week-label") as HTMLSpanElement;
+	const scheduleHead = document.getElementById("schedule-head") as HTMLTableRowElement;
+	const scheduleBody = document.getElementById("schedule-body") as HTMLTableSectionElement;
+	const attendanceSellerSelect = document.getElementById("attendance-seller-select") as HTMLSelectElement;
+	const attendanceError = document.getElementById("attendance-error") as HTMLParagraphElement;
+	const attendanceOk = document.getElementById("attendance-ok") as HTMLParagraphElement;
+
+	function renderTable() {
+		const week = getWeekDays(weekOffset);
+		weekLabel.textContent = `${week[0].label} – ${week[6].label}`;
+
+		scheduleHead.innerHTML = `<th>Vendedor</th>${week.map((d) => `<th>${d.label}</th>`).join("")}`;
+
+		scheduleBody.innerHTML = "";
+		for (const seller of sellers.filter((s) => s.active)) {
+			const row = document.createElement("tr");
+			const cells = week
+				.map((d) => {
+					const shift = shifts.find((s) => s.sellerId === seller.id && s.date === d.date);
+					if (isAdmin) {
+						return `
+							<td class="shift-cell">
+								<select class="shift-module" data-seller="${seller.id}" data-date="${d.date}">
+									<option value="">—</option>
+									${MODULES.map((m) => `<option value="${m.id}" ${shift?.moduleId === m.id ? "selected" : ""}>${m.name}</option>`).join("")}
+								</select>
+								<div class="shift-times">
+									<input type="time" class="shift-start" data-seller="${seller.id}" data-date="${d.date}" value="${shift?.start ?? ""}" />
+									<input type="time" class="shift-end" data-seller="${seller.id}" data-date="${d.date}" value="${shift?.end ?? ""}" />
+								</div>
+							</td>
+						`;
+					}
+					if (shift && shift.moduleId === currentModuleId) {
+						return `<td>${shift.start}–${shift.end}</td>`;
+					}
+					if (shift) {
+						const moduleName = MODULES.find((m) => m.id === shift.moduleId)?.name ?? shift.moduleId;
+						return `<td class="dim-cell">${moduleName}</td>`;
+					}
+					return `<td>—</td>`;
+				})
+				.join("");
+			row.innerHTML = `<td>${seller.name}</td>${cells}`;
+			scheduleBody.appendChild(row);
+		}
+
+		if (isAdmin) {
+			scheduleBody.querySelectorAll<HTMLElement>(".shift-module, .shift-start, .shift-end").forEach((el) => {
+				el.addEventListener("change", () => {
+					const sellerId = el.dataset.seller as string;
+					const date = el.dataset.date as string;
+					const cell = el.closest("td") as HTMLTableCellElement;
+					const moduleId = cell.querySelector<HTMLSelectElement>(".shift-module")?.value ?? "";
+					const start = cell.querySelector<HTMLInputElement>(".shift-start")?.value ?? "";
+					const end = cell.querySelector<HTMLInputElement>(".shift-end")?.value ?? "";
+					const seller = sellers.find((s) => s.id === sellerId);
+					if (!seller || isPreviewMode()) return;
+					setShift(sellerId, seller.name, moduleId, date, start, end);
+				});
+			});
+		}
+	}
+
+	function renderSellersAdmin() {
+		const list = document.getElementById("sellers-list") as HTMLDivElement;
+		list.innerHTML = sellers
+			.map(
+				(s) => `
+					<label class="seller-chip">
+						<input type="checkbox" ${s.active ? "checked" : ""} data-id="${s.id}" class="seller-active-toggle" />
+						${s.name}
+					</label>
+				`,
+			)
+			.join("");
+		list.querySelectorAll<HTMLInputElement>(".seller-active-toggle").forEach((el) => {
+			el.addEventListener("change", () => {
+				if (isPreviewMode()) return;
+				setSellerActive(el.dataset.id as string, el.checked);
+			});
+		});
+	}
+
+	function renderAttendance(events: AttendanceEvent[]) {
+		const body = document.getElementById("attendance-body") as HTMLTableSectionElement;
+		body.innerHTML = "";
+		for (const e of events) {
+			const time = e.at?.toDate ? e.at.toDate() : new Date();
+			const label = ATTENDANCE_EVENTS.find((a) => a.id === e.event)?.label ?? e.event;
+			const row = document.createElement("tr");
+			row.innerHTML = `
+				<td>${time.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</td>
+				<td>${e.sellerName}</td>
+				<td>${label}</td>
+			`;
+			body.appendChild(row);
+		}
+	}
+
+	function renderAttendanceSellerOptions() {
+		attendanceSellerSelect.innerHTML = sellers
+			.filter((s) => s.active)
+			.map((s) => `<option value="${s.id}">${s.name}</option>`)
+			.join("");
+	}
+
+	function loadWeek() {
+		unsubShifts?.();
+		if (isPreviewMode()) {
+			shifts = MOCK_SHIFTS;
+			renderTable();
+			return;
+		}
+		const week = getWeekDays(weekOffset);
+		unsubShifts = watchWeekShifts(week[0].date, week[6].date, (s) => {
+			shifts = s;
+			renderTable();
+		});
+	}
+
+	document.getElementById("prev-week-btn")?.addEventListener("click", () => {
+		weekOffset -= 1;
+		loadWeek();
+	});
+	document.getElementById("next-week-btn")?.addEventListener("click", () => {
+		weekOffset += 1;
+		loadWeek();
+	});
+
+	const addSellerForm = document.getElementById("add-seller-form") as HTMLFormElement;
+	addSellerForm.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		const input = document.getElementById("new-seller-name") as HTMLInputElement;
+		const name = input.value.trim();
+		if (!name) return;
+		if (!isPreviewMode()) {
+			await addSeller(name);
+		}
+		input.value = "";
+	});
+
+	const attendanceButtons = document.getElementById("attendance-buttons") as HTMLDivElement;
+	attendanceButtons.innerHTML = ATTENDANCE_EVENTS.map(
+		(e) => `<button type="button" class="btn btn-secondary" data-event="${e.id}">${e.label}</button>`,
+	).join("");
+	attendanceButtons.querySelectorAll<HTMLButtonElement>("button").forEach((btn) => {
+		btn.addEventListener("click", async () => {
+			attendanceError.hidden = true;
+			attendanceOk.hidden = true;
+			const sellerId = attendanceSellerSelect.value;
+			const seller = sellers.find((s) => s.id === sellerId);
+			if (!seller) {
+				attendanceError.textContent = "Selecciona un vendedor.";
+				attendanceError.hidden = false;
+				return;
+			}
+			const event = btn.dataset.event as AttendanceEventType;
+
+			if (isPreviewMode()) {
+				attendanceOk.textContent = `(Vista previa) ${seller.name}: ${btn.textContent}`;
+				attendanceOk.hidden = false;
+				return;
+			}
+
+			try {
+				await markAttendance(currentModuleId, sellerId, seller.name, event, uid);
+				attendanceOk.textContent = `${seller.name}: ${btn.textContent} registrado.`;
+				attendanceOk.hidden = false;
+			} catch {
+				attendanceError.textContent = "No se pudo registrar.";
+				attendanceError.hidden = false;
+			}
+		});
+	});
+
+	requireAuth().then(({ user, claims }) => {
+		uid = user.uid;
+		isAdmin = claims.role === "admin";
+		currentModuleId = claims.moduleId ?? "";
+
+		(document.getElementById("sellers-admin") as HTMLDivElement).hidden = !isAdmin;
+		(document.getElementById("attendance-section") as HTMLDivElement).hidden = isAdmin;
+
+		if (isPreviewMode()) {
+			sellers = MOCK_SELLERS;
+			renderSellersAdmin();
+			renderAttendanceSellerOptions();
+			loadWeek();
+			renderAttendance([]);
+			return;
+		}
+
+		watchSellers((s) => {
+			sellers = s;
+			renderSellersAdmin();
+			renderAttendanceSellerOptions();
+			renderTable();
+		});
+		loadWeek();
+
+		if (!isAdmin && currentModuleId) {
+			watchDayAttendance(currentModuleId, todayString(), renderAttendance);
+		}
+	});
+</script>
+
+<style>
+	.dim {
+		color: var(--text-dim);
+		font-size: 0.9rem;
+	}
+
+	.toolbar {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.week-label {
+		font-weight: 600;
+		min-width: 140px;
+		text-align: center;
+	}
+
+	.table-wrap {
+		overflow-x: auto;
+	}
+
+	#schedule-table {
+		min-width: 900px;
+	}
+
+	.shift-cell {
+		min-width: 110px;
+	}
+
+	.shift-module {
+		width: 100%;
+		margin-bottom: 0.3rem;
+	}
+
+	.shift-times {
+		display: flex;
+		gap: 0.3rem;
+	}
+
+	.shift-times input {
+		width: 78px;
+	}
+
+	.dim-cell {
+		color: var(--text-dim);
+	}
+
+	h2,
+	h3 {
+		margin-top: 2rem;
+	}
+
+	.form-row {
+		display: flex;
+		align-items: flex-end;
+		gap: 1rem;
+		flex-wrap: wrap;
+		margin-bottom: 0.75rem;
+	}
+
+	.form-row label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		font-size: 0.85rem;
+		color: var(--text-dim);
+	}
+
+	.form-row .grow {
+		flex: 1;
+		min-width: 200px;
+	}
+
+	.seller-chip-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+
+	.seller-chip {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.9rem;
+	}
+
+	.attendance-buttons {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.ok {
+		color: var(--ok);
+	}
+</style>

@@ -12,11 +12,6 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
 
-      match /sellers/{sellerId} {
-        allow read: if isAdmin() || isModule(moduleId);
-        allow write: if isAdmin();
-      }
-
       match /stock/{productId} {
         allow read: if isAdmin() || isModule(moduleId);
         allow write: if (isAdmin() || isModule(moduleId))
@@ -33,6 +28,11 @@ service cloud.firestore {
         allow read, create: if isAdmin() || isModule(moduleId);
         allow update, delete: if isAdmin();
       }
+
+      match /asistencia/{eventId} {
+        allow read, create: if isAdmin() || isModule(moduleId);
+        allow update, delete: if isAdmin();
+      }
     }
 
     // Admin cross-module views (collection group queries)
@@ -44,6 +44,17 @@ service cloud.firestore {
     }
 
     match /products/{productId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Sellers rotate across every module, so the roster and schedule are global.
+    match /sellers/{sellerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /turnos/{turnoId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }

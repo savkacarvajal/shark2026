@@ -2,6 +2,7 @@
 // can be reviewed visually without a working Firebase connection.
 import type { Product } from "./firebase/products";
 import type { Seller } from "./firebase/sellers";
+import { getWeekDays, type Shift } from "./firebase/schedule";
 
 export const MOCK_PRODUCTS: Product[] = [
 	{ id: "p1", sku: "CAR-IP15-001", name: "Carcasa iPhone 15 transparente", category: "carcasas", price: 6990, description: "Silicona, antigolpes", active: true },
@@ -24,4 +25,12 @@ export const MOCK_STOCK: Record<string, number> = {
 export const MOCK_SELLERS: Seller[] = [
 	{ id: "s1", name: "Camila Rojas", active: true },
 	{ id: "s2", name: "Matías Soto", active: true },
+];
+
+const week = getWeekDays(0);
+export const MOCK_SHIFTS: Shift[] = [
+	{ id: "m1", sellerId: "s1", sellerName: "Camila Rojas", moduleId: "plaza-sol", date: week[0].date, start: "10:00", end: "19:00" },
+	{ id: "m2", sellerId: "s1", sellerName: "Camila Rojas", moduleId: "centro", date: week[1].date, start: "10:00", end: "19:00" },
+	{ id: "m3", sellerId: "s2", sellerName: "Matías Soto", moduleId: "plaza-punto", date: week[0].date, start: "12:00", end: "21:00" },
+	{ id: "m4", sellerId: "s2", sellerName: "Matías Soto", moduleId: "vivo-coquimbo", date: week[2].date, start: "12:00", end: "21:00" },
 ];
