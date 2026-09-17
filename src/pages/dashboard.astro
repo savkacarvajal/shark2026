@@ -9,6 +9,7 @@ import AppLayout from "../layouts/AppLayout.astro";
 	<div class="card today-summary">
 		<h2>Ventas de hoy</h2>
 		<p class="today-total">Total: $<span id="today-total">0</span></p>
+		<p class="payment-breakdown" id="payment-breakdown"></p>
 		<table id="today-breakdown" hidden>
 			<thead>
 				<tr>
@@ -43,21 +44,32 @@ import AppLayout from "../layouts/AppLayout.astro";
 
 <script>
 	import { requireAuth, isPreviewMode } from "../lib/guards";
-	import { MODULES } from "../lib/constants";
+	import { MODULES, PAYMENT_METHODS } from "../lib/constants";
 	import { watchModuleSalesToday, watchAllSalesToday, type Sale } from "../lib/firebase/sales";
 
 	const todayTotal = document.getElementById("today-total") as HTMLSpanElement;
+	const paymentBreakdown = document.getElementById("payment-breakdown") as HTMLParagraphElement;
 	const breakdownTable = document.getElementById("today-breakdown") as HTMLTableElement;
 	const breakdownBody = document.getElementById("today-breakdown-body") as HTMLTableSectionElement;
+
+	function renderPaymentBreakdown(sales: Sale[]) {
+		const parts = PAYMENT_METHODS.map((m) => {
+			const total = sales.filter((s) => s.paymentMethod === m.id).reduce((sum, s) => sum + s.total, 0);
+			return total > 0 ? `${m.name}: $${total.toLocaleString("es-CL")}` : null;
+		}).filter(Boolean);
+		paymentBreakdown.textContent = parts.length ? parts.join(" · ") : "Sin ventas todavía.";
+	}
 
 	function renderModuleTotal(sales: Sale[]) {
 		const total = sales.reduce((sum, s) => sum + s.total, 0);
 		todayTotal.textContent = total.toLocaleString("es-CL");
+		renderPaymentBreakdown(sales);
 	}
 
 	function renderAllTotals(sales: Sale[]) {
 		const total = sales.reduce((sum, s) => sum + s.total, 0);
 		todayTotal.textContent = total.toLocaleString("es-CL");
+		renderPaymentBreakdown(sales);
 
 		breakdownTable.hidden = false;
 		breakdownBody.innerHTML = "";
@@ -88,12 +100,15 @@ import AppLayout from "../layouts/AppLayout.astro";
 		if (isPreviewMode()) {
 			if (claims.role === "admin") {
 				renderAllTotals([
-					{ moduleId: "plaza-sol", total: 45000 } as Sale,
-					{ moduleId: "centro", total: 32000 } as Sale,
-					{ moduleId: "centro", total: 18000 } as Sale,
+					{ moduleId: "plaza-sol", total: 45000, paymentMethod: "transferencia" } as Sale,
+					{ moduleId: "centro", total: 32000, paymentMethod: "efectivo" } as Sale,
+					{ moduleId: "centro", total: 18000, paymentMethod: "transbank" } as Sale,
 				]);
 			} else {
-				renderModuleTotal([{ total: 25000 } as Sale]);
+				renderModuleTotal([
+					{ total: 15000, paymentMethod: "efectivo" } as Sale,
+					{ total: 10000, paymentMethod: "transferencia" } as Sale,
+				]);
 			}
 			return;
 		}
@@ -124,6 +139,12 @@ import AppLayout from "../layouts/AppLayout.astro";
 		font-size: 1.5rem;
 		font-weight: 700;
 		margin: 0 0 0.5rem;
+	}
+
+	.payment-breakdown {
+		color: var(--text-dim);
+		font-size: 0.9rem;
+		margin: 0 0 0.75rem;
 	}
 
 	.grid {
