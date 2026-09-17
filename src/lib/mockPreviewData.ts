@@ -5,12 +5,12 @@ import type { Seller } from "./firebase/sellers";
 import { getWeekDays, type Shift } from "./firebase/schedule";
 
 export const MOCK_PRODUCTS: Product[] = [
-	{ id: "p1", sku: "CAR-IP15-001", name: "Carcasa iPhone 15 transparente", category: "carcasas", price: 6990, description: "Silicona, antigolpes", active: true },
-	{ id: "p2", sku: "LAM-IP15-001", name: "Lámina templada iPhone 15", category: "laminas", price: 4990, active: true },
-	{ id: "p3", sku: "AUD-BT-001", name: "Audífonos Bluetooth TWS", category: "audifonos", price: 12990, active: true },
-	{ id: "p4", sku: "BAT-10K-001", name: "Batería portátil 10.000mAh", category: "baterias", price: 15990, active: true },
-	{ id: "p5", sku: "CAB-USBC-001", name: "Cable USB-C 1m", category: "cables", price: 3990, active: true },
-	{ id: "p6", sku: "CAR-20W-001", name: "Cargador rápido 20W", category: "cargadores", price: 8990, active: true },
+	{ id: "p1", sku: "4601", name: "FUNDA TABLET A11 PLUS VIP", category: "tablet", price: 25000, description: "Silicona, antigolpes", active: true },
+	{ id: "p2", sku: "3824", name: "AUDIFONOS IPHONE ALTERNATIVOS DIRECTO", category: "audifonos", price: 25000, active: true },
+	{ id: "p3", sku: "4560", name: "CENTRO DE CARGA 10000 MAH TIPO-C", category: "centros-carga", price: 28000, active: true },
+	{ id: "p4", sku: "2369", name: "CABLE IPHONE TIPO C CERTIFICADO", category: "cables-adaptadores", price: 15000, active: true },
+	{ id: "p5", sku: "2370", name: "CARGADOR 20W IPHONE TIPO C CERTIFICADO", category: "cargadores", price: 20000, active: true },
+	{ id: "p6", sku: "4488", name: "CONSOLA R36S 128 GB", category: "juegos-joysticks", price: 80000, active: true },
 ];
 
 export const MOCK_STOCK: Record<string, number> = {

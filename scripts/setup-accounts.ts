@@ -79,8 +79,23 @@ async function seedModules() {
 	console.log(`Módulos sembrados: ${MODULES.map((m) => m.id).join(", ")}`);
 }
 
+// The real seller roster (rotate across all 4 modules). Edit this list to add/remove people.
+const SELLERS = ["Vendedor 1", "Vendedor 2", "Vendedor 3", "Vendedor 4", "Vendedor 5", "Vendedor 6", "Vendedor 7", "Vendedor 8", "Vendedor 9", "Vendedor 10"];
+
+async function seedSellers() {
+	const sellersRef = db.collection("sellers");
+	for (const name of SELLERS) {
+		const existing = await sellersRef.where("name", "==", name).limit(1).get();
+		if (existing.empty) {
+			await sellersRef.add({ name, active: true });
+		}
+	}
+	console.log(`Vendedores sembrados: ${SELLERS.join(", ")}`);
+}
+
 async function main() {
 	await seedModules();
+	await seedSellers();
 	for (const spec of ACCOUNTS) {
 		await upsertAccount(spec);
 	}
