@@ -7,6 +7,14 @@ export const MODULES = [
 
 export type ModuleId = (typeof MODULES)[number]["id"];
 
+// One distinct color per module for the shareable schedule calendar.
+export const MODULE_COLORS: Record<string, string> = {
+	centro: "#f59e0b",
+	"plaza-sol": "#fb7185",
+	"plaza-punto": "#a78bfa",
+	"vivo-coquimbo": "#34d399",
+};
+
 export const PRODUCT_CATEGORIES = [
 	{ id: "tablet", name: "Tablet" },
 	{ id: "soportes-tripodes", name: "Soportes y Trípodes" },
