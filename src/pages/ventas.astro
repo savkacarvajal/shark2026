@@ -1,0 +1,222 @@
+---
+import AppLayout from "../layouts/AppLayout.astro";
+import { PAYMENT_METHODS } from "../lib/constants";
+---
+
+<AppLayout title="Vender">
+	<h1>Registrar venta</h1>
+
+	<div class="grid">
+		<div class="card">
+			<label>
+				Vendedor
+				<select id="seller-select"></select>
+			</label>
+			<label>
+				Medio de pago
+				<select id="payment-select">
+					{PAYMENT_METHODS.map((m) => <option value={m.id}>{m.name}</option>)}
+				</select>
+			</label>
+
+			<h3>Agregar producto</h3>
+			<label>
+				Producto
+				<select id="product-select"></select>
+			</label>
+			<label>
+				Cantidad
+				<input type="number" id="qty-input" min="1" step="1" value="1" />
+			</label>
+			<button type="button" id="add-item-btn" class="btn btn-secondary">Agregar al carrito</button>
+		</div>
+
+		<div class="card">
+			<h3>Carrito</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Producto</th>
+						<th>Cant.</th>
+						<th>Subtotal</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody id="cart-body"></tbody>
+			</table>
+			<p class="total">Total: $<span id="total-label">0</span></p>
+			<button type="button" id="submit-sale-btn" class="btn" disabled>Registrar venta</button>
+			<p class="error" id="error-msg" hidden></p>
+			<p class="ok" id="ok-msg" hidden></p>
+		</div>
+	</div>
+</AppLayout>
+
+<script>
+	import { requireAuth } from "../lib/guards";
+	import { watchProducts, type Product } from "../lib/firebase/products";
+	import { watchSellers, type Seller } from "../lib/firebase/sellers";
+	import { watchStock } from "../lib/firebase/stock";
+	import { createSale, InsufficientStockError, type SaleItem } from "../lib/firebase/sales";
+	import type { PaymentMethod } from "../lib/constants";
+
+	let products: Product[] = [];
+	let stock: Record<string, number> = {};
+	let cart: SaleItem[] = [];
+	let moduleId = "";
+	let sellerId = "";
+	let uid = "";
+
+	const productSelect = document.getElementById("product-select") as HTMLSelectElement;
+	const sellerSelect = document.getElementById("seller-select") as HTMLSelectElement;
+	const qtyInput = document.getElementById("qty-input") as HTMLInputElement;
+	const cartBody = document.getElementById("cart-body") as HTMLTableSectionElement;
+	const totalLabel = document.getElementById("total-label") as HTMLSpanElement;
+	const submitBtn = document.getElementById("submit-sale-btn") as HTMLButtonElement;
+	const errorMsg = document.getElementById("error-msg") as HTMLParagraphElement;
+	const okMsg = document.getElementById("ok-msg") as HTMLParagraphElement;
+
+	function renderProductOptions() {
+		productSelect.innerHTML = products
+			.filter((p) => p.active)
+			.map((p) => `<option value="${p.id}">${p.name} — $${p.price.toLocaleString("es-CL")}</option>`)
+			.join("");
+	}
+
+	function renderCart() {
+		cartBody.innerHTML = "";
+		let total = 0;
+		cart.forEach((item, idx) => {
+			const subtotal = item.qty * item.unitPrice;
+			total += subtotal;
+			const row = document.createElement("tr");
+			row.innerHTML = `
+				<td>${item.productName}</td>
+				<td>${item.qty}</td>
+				<td>$${subtotal.toLocaleString("es-CL")}</td>
+				<td><button type="button" class="btn btn-secondary remove-btn" data-idx="${idx}">✕</button></td>
+			`;
+			cartBody.appendChild(row);
+		});
+		totalLabel.textContent = total.toLocaleString("es-CL");
+		submitBtn.disabled = cart.length === 0 || !sellerId;
+		cartBody.querySelectorAll<HTMLButtonElement>(".remove-btn").forEach((btn) => {
+			btn.addEventListener("click", () => {
+				cart.splice(Number(btn.dataset.idx), 1);
+				renderCart();
+			});
+		});
+	}
+
+	document.getElementById("add-item-btn")?.addEventListener("click", () => {
+		errorMsg.hidden = true;
+		const productId = productSelect.value;
+		const product = products.find((p) => p.id === productId);
+		const qty = Number(qtyInput.value);
+		if (!product || !qty || qty < 1) return;
+
+		const available = stock[productId] ?? 0;
+		const alreadyInCart = cart.filter((i) => i.productId === productId).reduce((s, i) => s + i.qty, 0);
+		if (alreadyInCart + qty > available) {
+			errorMsg.textContent = `Stock insuficiente de "${product.name}" (disponible: ${available}).`;
+			errorMsg.hidden = false;
+			return;
+		}
+
+		const existing = cart.find((i) => i.productId === productId);
+		if (existing) {
+			existing.qty += qty;
+		} else {
+			cart.push({ productId, productName: product.name, qty, unitPrice: product.price });
+		}
+		renderCart();
+	});
+
+	sellerSelect.addEventListener("change", () => {
+		sellerId = sellerSelect.value;
+		renderCart();
+	});
+
+	document.getElementById("submit-sale-btn")?.addEventListener("click", async () => {
+		errorMsg.hidden = true;
+		okMsg.hidden = true;
+		submitBtn.disabled = true;
+		const seller = sellerSelect.selectedOptions[0];
+		try {
+			await createSale({
+				moduleId,
+				sellerId,
+				sellerName: seller?.textContent ?? "",
+				items: cart,
+				paymentMethod: (document.getElementById("payment-select") as HTMLSelectElement).value as PaymentMethod,
+				createdByUid: uid,
+			});
+			cart = [];
+			renderCart();
+			okMsg.textContent = "Venta registrada.";
+			okMsg.hidden = false;
+		} catch (err) {
+			errorMsg.textContent = err instanceof InsufficientStockError ? err.message : "No se pudo registrar la venta.";
+			errorMsg.hidden = false;
+		} finally {
+			submitBtn.disabled = cart.length === 0 || !sellerId;
+		}
+	});
+
+	requireAuth().then(({ user, claims }) => {
+		uid = user.uid;
+		moduleId = claims.moduleId ?? "";
+
+		if (!moduleId) {
+			errorMsg.textContent = "Tu cuenta no tiene un módulo asignado.";
+			errorMsg.hidden = false;
+			return;
+		}
+
+		watchProducts((p) => {
+			products = p;
+			renderProductOptions();
+		});
+		watchStock(moduleId, (s) => {
+			stock = s;
+		});
+		watchSellers(moduleId, (sellers: Seller[]) => {
+			const active = sellers.filter((s) => s.active);
+			sellerSelect.innerHTML = active.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+			sellerId = active[0]?.id ?? "";
+			renderCart();
+		});
+	});
+</script>
+
+<style>
+	.grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1.5rem;
+	}
+
+	@media (max-width: 700px) {
+		.grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		margin-bottom: 0.75rem;
+		color: var(--text-dim);
+		font-size: 0.9rem;
+	}
+
+	.total {
+		font-weight: 700;
+		font-size: 1.1rem;
+	}
+
+	.ok {
+		color: var(--ok);
+	}
+</style>

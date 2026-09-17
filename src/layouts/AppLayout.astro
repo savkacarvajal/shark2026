@@ -1,0 +1,109 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+interface Props {
+	title: string;
+}
+const { title } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title={title}>
+	<div class="shell">
+		<header class="topbar">
+			<a href={`${base}dashboard`} class="brand">🦈 Shark2026</a>
+			<nav>
+				<a href={`${base}inventario`}>Inventario</a>
+				<a href={`${base}ventas`}>Vender</a>
+				<a href={`${base}ventas/historial`}>Historial</a>
+				<a href={`${base}productos`} data-admin-only hidden>Productos</a>
+			</nav>
+			<div class="who">
+				<span id="who-label"></span>
+				<button id="logout-btn" class="btn btn-secondary">Salir</button>
+			</div>
+		</header>
+		<main class="content">
+			<slot />
+		</main>
+	</div>
+</BaseLayout>
+
+<script>
+	import { requireAuth } from "../lib/guards";
+	import { logout } from "../lib/firebase/auth";
+	import { MODULES } from "../lib/constants";
+
+	requireAuth().then(({ claims }) => {
+		const whoLabel = document.getElementById("who-label");
+		if (whoLabel) {
+			const moduleName = MODULES.find((m) => m.id === claims.moduleId)?.name;
+			whoLabel.textContent =
+				claims.role === "admin" ? "Administradora" : moduleName ?? "Módulo";
+		}
+		if (claims.role === "admin") {
+			document.querySelectorAll("[data-admin-only]").forEach((el) => el.removeAttribute("hidden"));
+		}
+	});
+
+	document.getElementById("logout-btn")?.addEventListener("click", async () => {
+		await logout();
+		window.location.href = `${import.meta.env.BASE_URL}login`;
+	});
+</script>
+
+<style>
+	.shell {
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.topbar {
+		display: flex;
+		align-items: center;
+		gap: 1.5rem;
+		padding: 1rem 1.5rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--bg-panel);
+		flex-wrap: wrap;
+	}
+
+	.brand {
+		font-weight: 800;
+		text-decoration: none;
+		color: var(--text);
+	}
+
+	nav {
+		display: flex;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	nav a {
+		color: var(--text-dim);
+		text-decoration: none;
+		font-size: 0.95rem;
+	}
+
+	nav a:hover {
+		color: var(--accent);
+	}
+
+	.who {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		color: var(--text-dim);
+		font-size: 0.9rem;
+	}
+
+	.content {
+		flex: 1;
+		padding: 1.5rem;
+		max-width: 1100px;
+		width: 100%;
+		margin: 0 auto;
+	}
+</style>

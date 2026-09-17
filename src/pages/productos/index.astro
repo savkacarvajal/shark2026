@@ -1,0 +1,109 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+import { PRODUCT_CATEGORIES } from "../../lib/constants";
+---
+
+<AppLayout title="Productos">
+	<h1>Productos</h1>
+
+	<form id="create-form" class="card form-row">
+		<input id="sku" placeholder="SKU" required />
+		<input id="name" placeholder="Nombre" required />
+		<select id="category" required>
+			{PRODUCT_CATEGORIES.map((c) => <option value={c.id}>{c.name}</option>)}
+		</select>
+		<input id="price" type="number" min="0" step="1" placeholder="Precio (CLP)" required />
+		<button type="submit" class="btn">Agregar</button>
+	</form>
+	<p class="error" id="error-msg" hidden></p>
+
+	<table class="card">
+		<thead>
+			<tr>
+				<th>SKU</th>
+				<th>Nombre</th>
+				<th>Categoría</th>
+				<th>Precio</th>
+				<th>Activo</th>
+			</tr>
+		</thead>
+		<tbody id="products-body"></tbody>
+	</table>
+</AppLayout>
+
+<script>
+	import { requireAuth } from "../../lib/guards";
+	import { watchProducts, createProduct, updateProduct } from "../../lib/firebase/products";
+	import { PRODUCT_CATEGORIES, type ProductCategory } from "../../lib/constants";
+
+	requireAuth({ adminOnly: true }).then(() => {
+		const body = document.getElementById("products-body") as HTMLTableSectionElement;
+
+		watchProducts((products) => {
+			body.innerHTML = "";
+			for (const p of products) {
+				const row = document.createElement("tr");
+				const categoryName = PRODUCT_CATEGORIES.find((c) => c.id === p.category)?.name ?? p.category;
+				row.innerHTML = `
+					<td>${p.sku}</td>
+					<td>${p.name}</td>
+					<td>${categoryName}</td>
+					<td>$${p.price.toLocaleString("es-CL")}</td>
+					<td><input type="checkbox" ${p.active ? "checked" : ""} data-id="${p.id}" class="active-toggle" /></td>
+				`;
+				body.appendChild(row);
+			}
+			body.querySelectorAll<HTMLInputElement>(".active-toggle").forEach((el) => {
+				el.addEventListener("change", () => {
+					updateProduct(el.dataset.id as string, { active: el.checked });
+				});
+			});
+		});
+	});
+
+	const form = document.getElementById("create-form") as HTMLFormElement;
+	const errorMsg = document.getElementById("error-msg") as HTMLParagraphElement;
+
+	form.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		errorMsg.hidden = true;
+		const sku = (document.getElementById("sku") as HTMLInputElement).value.trim();
+		const name = (document.getElementById("name") as HTMLInputElement).value.trim();
+		const category = (document.getElementById("category") as HTMLSelectElement).value as ProductCategory;
+		const price = Number((document.getElementById("price") as HTMLInputElement).value);
+
+		if (!sku || !name || !price) {
+			errorMsg.textContent = "Completa todos los campos.";
+			errorMsg.hidden = false;
+			return;
+		}
+
+		try {
+			await createProduct({ sku, name, category, price });
+			form.reset();
+		} catch {
+			errorMsg.textContent = "No se pudo agregar el producto.";
+			errorMsg.hidden = false;
+		}
+	});
+</script>
+
+<style>
+	.form-row {
+		display: flex;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		align-items: center;
+		margin: 1.5rem 0 0.75rem;
+	}
+
+	.form-row input,
+	.form-row select {
+		flex: 1;
+		min-width: 140px;
+	}
+
+	table {
+		margin-top: 0.5rem;
+	}
+</style>

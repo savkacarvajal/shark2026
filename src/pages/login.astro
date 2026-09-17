@@ -1,0 +1,105 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Ingresar">
+	<main class="wrap">
+		<form id="login-form" class="card">
+			<span class="fin">🦈</span>
+			<h1>Shark2026</h1>
+			<label>
+				Correo
+				<input type="email" id="email" required autocomplete="username" />
+			</label>
+			<label>
+				Contraseña
+				<input type="password" id="password" required autocomplete="current-password" />
+			</label>
+			<button type="submit" class="btn" id="submit-btn">Ingresar</button>
+			<button type="button" id="forgot-btn" class="btn btn-secondary">Olvidé mi contraseña</button>
+			<p class="error" id="error-msg" hidden></p>
+		</form>
+	</main>
+</BaseLayout>
+
+<script>
+	import { login, resetPassword } from "../lib/firebase/auth";
+
+	const base = import.meta.env.BASE_URL;
+	const form = document.getElementById("login-form") as HTMLFormElement;
+	const emailInput = document.getElementById("email") as HTMLInputElement;
+	const passwordInput = document.getElementById("password") as HTMLInputElement;
+	const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement;
+	const errorMsg = document.getElementById("error-msg") as HTMLParagraphElement;
+
+	function showError(message: string) {
+		errorMsg.textContent = message;
+		errorMsg.hidden = false;
+	}
+
+	form.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		errorMsg.hidden = true;
+		submitBtn.disabled = true;
+		try {
+			await login(emailInput.value.trim(), passwordInput.value);
+			window.location.href = `${base}dashboard`;
+		} catch (err) {
+			showError("Correo o contraseña incorrectos.");
+		} finally {
+			submitBtn.disabled = false;
+		}
+	});
+
+	document.getElementById("forgot-btn")?.addEventListener("click", async () => {
+		errorMsg.hidden = true;
+		const email = emailInput.value.trim();
+		if (!email) {
+			showError("Escribe tu correo arriba primero.");
+			return;
+		}
+		try {
+			await resetPassword(email);
+			showError("Listo, te enviamos un correo para restablecer tu contraseña.");
+		} catch {
+			showError("No se pudo enviar el correo de recuperación.");
+		}
+	});
+</script>
+
+<style>
+	.wrap {
+		min-height: 100vh;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: linear-gradient(180deg, #041c32 0%, #04293a 45%, #064663 100%);
+		padding: 1.5rem;
+	}
+
+	.card {
+		width: 100%;
+		max-width: 360px;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		text-align: center;
+	}
+
+	.fin {
+		font-size: 2.5rem;
+	}
+
+	h1 {
+		margin: 0 0 0.5rem;
+	}
+
+	label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		text-align: left;
+		font-size: 0.9rem;
+		color: var(--text-dim);
+	}
+</style>

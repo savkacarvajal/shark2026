@@ -1,0 +1,112 @@
+---
+interface Props {
+	title: string;
+}
+const { title } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title} · Shark2026</title>
+	</head>
+	<body>
+		<slot />
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		color-scheme: dark;
+		--bg: #041c32;
+		--bg-panel: #0a2e47;
+		--border: #10405e;
+		--text: #e0f2fe;
+		--text-dim: #93c5fd;
+		--accent: #38bdf8;
+		--accent-dark: #0369a1;
+		--danger: #f87171;
+		--ok: #4ade80;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	html,
+	body {
+		margin: 0;
+		min-height: 100%;
+		font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+		background: var(--bg);
+		color: var(--text);
+	}
+
+	a {
+		color: var(--accent);
+	}
+
+	button,
+	input,
+	select {
+		font: inherit;
+	}
+
+	.btn {
+		background: var(--accent-dark);
+		color: white;
+		border: 1px solid var(--accent);
+		border-radius: 8px;
+		padding: 0.6rem 1.2rem;
+		cursor: pointer;
+	}
+
+	.btn:hover {
+		background: var(--accent);
+	}
+
+	.btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.btn-secondary {
+		background: transparent;
+	}
+
+	input,
+	select {
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		padding: 0.5rem 0.7rem;
+		color: var(--text);
+	}
+
+	.card {
+		background: var(--bg-panel);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		padding: 1.25rem;
+	}
+
+	.error {
+		color: var(--danger);
+	}
+
+	table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	th,
+	td {
+		text-align: left;
+		padding: 0.5rem 0.75rem;
+		border-bottom: 1px solid var(--border);
+	}
+</style>

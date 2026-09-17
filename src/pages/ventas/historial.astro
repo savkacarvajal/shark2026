@@ -1,0 +1,98 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+import { MODULES } from "../../lib/constants";
+---
+
+<AppLayout title="Historial de ventas">
+	<h1>Historial de ventas</h1>
+
+	<div class="toolbar" id="module-filter-wrap" hidden>
+		<label>
+			Módulo:
+			<select id="module-filter">
+				<option value="">Todos</option>
+				{MODULES.map((m) => <option value={m.id}>{m.name}</option>)}
+			</select>
+		</label>
+	</div>
+
+	<table class="card">
+		<thead>
+			<tr>
+				<th>Fecha</th>
+				<th>Módulo</th>
+				<th>Vendedor</th>
+				<th>Productos</th>
+				<th>Medio de pago</th>
+				<th>Total</th>
+			</tr>
+		</thead>
+		<tbody id="sales-body"></tbody>
+	</table>
+</AppLayout>
+
+<script>
+	import { requireAuth } from "../../lib/guards";
+	import { getModuleSales, getAllSales, type Sale } from "../../lib/firebase/sales";
+	import { MODULES, PAYMENT_METHODS } from "../../lib/constants";
+
+	function moduleName(id: string) {
+		return MODULES.find((m) => m.id === id)?.name ?? id;
+	}
+
+	function paymentName(id: string) {
+		return PAYMENT_METHODS.find((m) => m.id === id)?.name ?? id;
+	}
+
+	function render(sales: Sale[]) {
+		const body = document.getElementById("sales-body") as HTMLTableSectionElement;
+		body.innerHTML = "";
+		for (const sale of sales) {
+			const date = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date();
+			const itemsSummary = sale.items.map((i) => `${i.qty}× ${i.productName}`).join(", ");
+			const row = document.createElement("tr");
+			row.innerHTML = `
+				<td>${date.toLocaleString("es-CL")}</td>
+				<td>${moduleName(sale.moduleId)}</td>
+				<td>${sale.sellerName}</td>
+				<td>${itemsSummary}</td>
+				<td>${paymentName(sale.paymentMethod)}</td>
+				<td>$${sale.total.toLocaleString("es-CL")}</td>
+			`;
+			body.appendChild(row);
+		}
+	}
+
+	requireAuth().then(({ claims }) => {
+		if (claims.role === "admin") {
+			const wrap = document.getElementById("module-filter-wrap") as HTMLDivElement;
+			wrap.hidden = false;
+			const select = document.getElementById("module-filter") as HTMLSelectElement;
+
+			async function load() {
+				if (select.value) {
+					render(await getModuleSales(select.value));
+				} else {
+					render(await getAllSales());
+				}
+			}
+			select.addEventListener("change", load);
+			load();
+		} else if (claims.moduleId) {
+			getModuleSales(claims.moduleId).then(render);
+		}
+	});
+</script>
+
+<style>
+	.toolbar {
+		margin-bottom: 1rem;
+	}
+
+	.toolbar label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--text-dim);
+	}
+</style>

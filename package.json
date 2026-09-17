@@ -9,12 +9,20 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "setup-accounts": "tsx scripts/setup-accounts.ts"
   },
   "dependencies": {
-    "astro": "^7.3.2"
+    "astro": "^7.3.2",
+    "firebase": "^12.19.0"
   },
   "allowScripts": {
     "esbuild": true
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "firebase-admin": "^14.4.0",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3"
   }
 }

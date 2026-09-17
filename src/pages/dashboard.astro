@@ -1,0 +1,72 @@
+---
+import AppLayout from "../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Inicio">
+	<h1>Hola 👋</h1>
+	<p id="greeting" class="dim">Cargando...</p>
+	<div class="grid">
+		<a class="card link" href={`${import.meta.env.BASE_URL}ventas`}>
+			<h3>Registrar venta</h3>
+			<p>Vende productos y descuenta stock automáticamente.</p>
+		</a>
+		<a class="card link" href={`${import.meta.env.BASE_URL}inventario`}>
+			<h3>Inventario</h3>
+			<p>Revisa y ajusta el stock de tu módulo.</p>
+		</a>
+		<a class="card link" href={`${import.meta.env.BASE_URL}ventas/historial`}>
+			<h3>Historial de ventas</h3>
+			<p>Revisa las ventas registradas.</p>
+		</a>
+		<a class="card link" id="productos-link" href={`${import.meta.env.BASE_URL}productos`} data-admin-only hidden>
+			<h3>Productos</h3>
+			<p>Administra el catálogo (solo admin).</p>
+		</a>
+	</div>
+</AppLayout>
+
+<script>
+	import { requireAuth } from "../lib/guards";
+	import { MODULES } from "../lib/constants";
+
+	requireAuth().then(({ claims }) => {
+		const greeting = document.getElementById("greeting");
+		if (!greeting) return;
+		if (claims.role === "admin") {
+			greeting.textContent = "Ves los 3 módulos.";
+		} else {
+			const moduleName = MODULES.find((m) => m.id === claims.moduleId)?.name;
+			greeting.textContent = `Estás en ${moduleName ?? "tu módulo"}.`;
+		}
+	});
+</script>
+
+<style>
+	.dim {
+		color: var(--text-dim);
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: 1rem;
+		margin-top: 1.5rem;
+	}
+
+	.link {
+		text-decoration: none;
+		color: inherit;
+		display: block;
+	}
+
+	.link h3 {
+		margin: 0 0 0.4rem;
+		color: var(--accent);
+	}
+
+	.link p {
+		margin: 0;
+		color: var(--text-dim);
+		font-size: 0.9rem;
+	}
+</style>

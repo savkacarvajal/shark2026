@@ -1,0 +1,103 @@
+---
+import AppLayout from "../layouts/AppLayout.astro";
+import { MODULES } from "../lib/constants";
+---
+
+<AppLayout title="Inventario">
+	<h1>Inventario</h1>
+
+	<div class="toolbar" id="module-switcher" hidden>
+		<label>
+			Módulo:
+			<select id="module-select">
+				{MODULES.map((m) => <option value={m.id}>{m.name}</option>)}
+			</select>
+		</label>
+	</div>
+
+	<table class="card">
+		<thead>
+			<tr>
+				<th>Producto</th>
+				<th>Categoría</th>
+				<th>Stock actual</th>
+				<th>Ajustar</th>
+			</tr>
+		</thead>
+		<tbody id="stock-body"></tbody>
+	</table>
+</AppLayout>
+
+<script>
+	import { requireAuth } from "../lib/guards";
+	import { watchProducts, type Product } from "../lib/firebase/products";
+	import { watchStock, setStock } from "../lib/firebase/stock";
+	import { PRODUCT_CATEGORIES, MODULES } from "../lib/constants";
+
+	let unsubStock: (() => void) | null = null;
+	let products: Product[] = [];
+	let currentModuleId = "";
+	let uid = "";
+
+	function render(stock: Record<string, number>) {
+		const body = document.getElementById("stock-body") as HTMLTableSectionElement;
+		body.innerHTML = "";
+		for (const p of products.filter((p) => p.active)) {
+			const categoryName = PRODUCT_CATEGORIES.find((c) => c.id === p.category)?.name ?? p.category;
+			const qty = stock[p.id] ?? 0;
+			const row = document.createElement("tr");
+			row.innerHTML = `
+				<td>${p.name}</td>
+				<td>${categoryName}</td>
+				<td>${qty}</td>
+				<td>
+					<input type="number" min="0" step="1" value="${qty}" data-id="${p.id}" class="qty-input" style="width:80px" />
+				</td>
+			`;
+			body.appendChild(row);
+		}
+		body.querySelectorAll<HTMLInputElement>(".qty-input").forEach((el) => {
+			el.addEventListener("change", () => {
+				const newQty = Number(el.value);
+				if (Number.isNaN(newQty) || newQty < 0) return;
+				setStock(currentModuleId, el.dataset.id as string, newQty, uid);
+			});
+		});
+	}
+
+	function watchModule(moduleId: string) {
+		currentModuleId = moduleId;
+		unsubStock?.();
+		unsubStock = watchStock(moduleId, render);
+	}
+
+	requireAuth().then(({ user, claims }) => {
+		uid = user.uid;
+		watchProducts((p) => {
+			products = p;
+		});
+
+		if (claims.role === "admin") {
+			const switcher = document.getElementById("module-switcher") as HTMLDivElement;
+			switcher.hidden = false;
+			const select = document.getElementById("module-select") as HTMLSelectElement;
+			select.addEventListener("change", () => watchModule(select.value));
+			watchModule(select.value || MODULES[0].id);
+		} else if (claims.moduleId) {
+			watchModule(claims.moduleId);
+		}
+	});
+</script>
+
+<style>
+	.toolbar {
+		margin-bottom: 1rem;
+	}
+
+	.toolbar label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--text-dim);
+	}
+</style>
