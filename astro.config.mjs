@@ -4,5 +4,5 @@ import { defineConfig } from 'astro/config';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://savkacarvajal.github.io',
-  base: '/shark2026',
+  base: '/shark2026/',
 });
