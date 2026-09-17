@@ -16,6 +16,8 @@ import { MODULES } from "../../lib/constants";
 		</label>
 	</div>
 
+	<p class="error" id="historial-error" hidden></p>
+
 	<table class="card">
 		<thead>
 			<tr>
@@ -33,10 +35,13 @@ import { MODULES } from "../../lib/constants";
 </AppLayout>
 
 <script>
-	import { requireAuth } from "../../lib/guards";
+	import { requireAuth, isPreviewMode } from "../../lib/guards";
 	import { getModuleSales, getAllSales, type Sale } from "../../lib/firebase/sales";
 	import { MODULES, PAYMENT_METHODS } from "../../lib/constants";
+	import { MOCK_SALES } from "../../lib/mockPreviewData";
 	import { escapeHtml } from "../../lib/escapeHtml";
+
+	const errorMsg = document.getElementById("historial-error") as HTMLParagraphElement;
 
 	function moduleName(id: string) {
 		return MODULES.find((m) => m.id === id)?.name ?? id;
@@ -67,22 +72,48 @@ import { MODULES } from "../../lib/constants";
 	}
 
 	requireAuth().then(({ claims }) => {
+		if (isPreviewMode()) {
+			if (claims.role === "admin") {
+				const wrap = document.getElementById("module-filter-wrap") as HTMLDivElement;
+				wrap.hidden = false;
+				const select = document.getElementById("module-filter") as HTMLSelectElement;
+				select.addEventListener("change", () => {
+					render(select.value ? MOCK_SALES.filter((s) => s.moduleId === select.value) : MOCK_SALES);
+				});
+				render(MOCK_SALES);
+			} else {
+				render(MOCK_SALES.filter((s) => s.moduleId === claims.moduleId));
+			}
+			return;
+		}
+
 		if (claims.role === "admin") {
 			const wrap = document.getElementById("module-filter-wrap") as HTMLDivElement;
 			wrap.hidden = false;
 			const select = document.getElementById("module-filter") as HTMLSelectElement;
 
 			async function load() {
-				if (select.value) {
-					render(await getModuleSales(select.value));
-				} else {
-					render(await getAllSales());
+				errorMsg.hidden = true;
+				try {
+					if (select.value) {
+						render(await getModuleSales(select.value));
+					} else {
+						render(await getAllSales());
+					}
+				} catch {
+					errorMsg.textContent = "No se pudo cargar el historial de ventas.";
+					errorMsg.hidden = false;
 				}
 			}
 			select.addEventListener("change", load);
 			load();
 		} else if (claims.moduleId) {
-			getModuleSales(claims.moduleId).then(render);
+			getModuleSales(claims.moduleId)
+				.then(render)
+				.catch(() => {
+					errorMsg.textContent = "No se pudo cargar el historial de ventas.";
+					errorMsg.hidden = false;
+				});
 		}
 	});
 </script>

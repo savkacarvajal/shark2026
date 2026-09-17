@@ -2,6 +2,7 @@
 // can be reviewed visually without a working Firebase connection.
 import type { Product } from "./firebase/products";
 import type { Seller } from "./firebase/sellers";
+import type { Sale } from "./firebase/sales";
 import { getWeekDays, type Shift } from "./firebase/schedule";
 
 export const MOCK_PRODUCTS: Product[] = [
@@ -33,4 +34,30 @@ export const MOCK_SHIFTS: Shift[] = [
 	{ id: "m2", sellerId: "s1", sellerName: "Camila Rojas", moduleId: "centro", date: week[1].date, start: "10:00", end: "19:00" },
 	{ id: "m3", sellerId: "s2", sellerName: "Matías Soto", moduleId: "plaza-punto", date: week[0].date, start: "12:00", end: "21:00" },
 	{ id: "m4", sellerId: "s2", sellerName: "Matías Soto", moduleId: "vivo-coquimbo", date: week[2].date, start: "12:00", end: "21:00" },
+];
+
+export const MOCK_SALES: Sale[] = [
+	{
+		id: "sale1",
+		moduleId: "plaza-sol",
+		sellerId: "s1",
+		sellerName: "Camila Rojas",
+		items: [{ productId: "p1", productName: "FUNDA TABLET A11 PLUS VIP", qty: 1, unitPrice: 25000 }],
+		discount: 0,
+		total: 25000,
+		paymentMethod: "transferencia",
+	} as Sale,
+	{
+		id: "sale2",
+		moduleId: "centro",
+		sellerId: "s2",
+		sellerName: "Matías Soto",
+		items: [
+			{ productId: "p3", productName: "CENTRO DE CARGA 10000 MAH TIPO-C", qty: 2, unitPrice: 28000 },
+			{ productId: "p4", productName: "CABLE IPHONE TIPO C CERTIFICADO", qty: 1, unitPrice: 15000 },
+		],
+		discount: 5000,
+		total: 66000,
+		paymentMethod: "efectivo",
+	} as Sale,
 ];
