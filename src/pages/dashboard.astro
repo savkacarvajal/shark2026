@@ -22,6 +22,20 @@ import AppLayout from "../layouts/AppLayout.astro";
 		</table>
 	</div>
 
+	<div class="card shift-status" id="shift-status" hidden>
+		<h2>Turno de hoy</h2>
+		<table>
+			<thead>
+				<tr>
+					<th>Módulo</th>
+					<th>Vendedor</th>
+					<th>Estado</th>
+				</tr>
+			</thead>
+			<tbody id="shift-status-body"></tbody>
+		</table>
+	</div>
+
 	<div class="grid">
 		<a class="card link" href={`${import.meta.env.BASE_URL}ventas`}>
 			<h3>Registrar venta</h3>
@@ -46,11 +60,60 @@ import AppLayout from "../layouts/AppLayout.astro";
 	import { requireAuth, isPreviewMode } from "../lib/guards";
 	import { MODULES, PAYMENT_METHODS } from "../lib/constants";
 	import { watchModuleSalesToday, watchAllSalesToday, type Sale } from "../lib/firebase/sales";
+	import { watchWeekShifts, watchDayAttendance, todayString, type Shift, type AttendanceEvent } from "../lib/firebase/schedule";
+	import { MOCK_SHIFTS } from "../lib/mockPreviewData";
+	import { escapeHtml } from "../lib/escapeHtml";
 
 	const todayTotal = document.getElementById("today-total") as HTMLSpanElement;
 	const paymentBreakdown = document.getElementById("payment-breakdown") as HTMLParagraphElement;
 	const breakdownTable = document.getElementById("today-breakdown") as HTMLTableElement;
 	const breakdownBody = document.getElementById("today-breakdown-body") as HTMLTableSectionElement;
+
+	const shiftStatusCard = document.getElementById("shift-status") as HTMLDivElement;
+	const shiftStatusBody = document.getElementById("shift-status-body") as HTMLTableSectionElement;
+	let todayShifts: Shift[] = [];
+	let attendanceByModule: Record<string, AttendanceEvent[]> = {};
+
+	function statusForSeller(sellerId: string, moduleId: string): string {
+		const events = (attendanceByModule[moduleId] ?? []).filter((e) => e.sellerId === sellerId);
+		const last = events[events.length - 1];
+		if (!last) return "Sin marcar";
+		switch (last.event) {
+			case "llegada":
+				return "Presente";
+			case "colacion_salida":
+				return "En colación";
+			case "colacion_vuelta":
+				return "Presente";
+			case "salida":
+				return "Salió";
+			default:
+				return "Sin marcar";
+		}
+	}
+
+	function renderShiftStatus() {
+		const rows = todayShifts
+			.slice()
+			.sort((a, b) => a.moduleId.localeCompare(b.moduleId) || a.sellerName.localeCompare(b.sellerName));
+		if (rows.length === 0) {
+			shiftStatusBody.innerHTML = `<tr><td colspan="3" class="dim">Nadie tiene turno asignado hoy.</td></tr>`;
+			return;
+		}
+		shiftStatusBody.innerHTML = rows
+			.map((shift) => {
+				const moduleName = MODULES.find((m) => m.id === shift.moduleId)?.name ?? shift.moduleId;
+				const status = statusForSeller(shift.sellerId, shift.moduleId);
+				return `
+					<tr>
+						<td>${escapeHtml(moduleName)}</td>
+						<td>${escapeHtml(shift.sellerName)}</td>
+						<td>${escapeHtml(status)}</td>
+					</tr>
+				`;
+			})
+			.join("");
+	}
 
 	function renderPaymentBreakdown(sales: Sale[]) {
 		const parts = PAYMENT_METHODS.map((m) => {
@@ -104,6 +167,13 @@ import AppLayout from "../layouts/AppLayout.astro";
 					{ moduleId: "centro", total: 32000, paymentMethod: "efectivo" } as Sale,
 					{ moduleId: "centro", total: 18000, paymentMethod: "transbank" } as Sale,
 				]);
+				shiftStatusCard.hidden = false;
+				todayShifts = MOCK_SHIFTS;
+				attendanceByModule = {
+					"plaza-sol": [{ sellerId: "s1", event: "llegada" } as AttendanceEvent],
+					"plaza-punto": [{ sellerId: "s2", event: "colacion_salida" } as AttendanceEvent],
+				};
+				renderShiftStatus();
 			} else {
 				renderModuleTotal([
 					{ total: 15000, paymentMethod: "efectivo" } as Sale,
@@ -115,6 +185,19 @@ import AppLayout from "../layouts/AppLayout.astro";
 
 		if (claims.role === "admin") {
 			watchAllSalesToday(renderAllTotals);
+
+			shiftStatusCard.hidden = false;
+			const today = todayString();
+			watchWeekShifts(today, today, (shifts) => {
+				todayShifts = shifts;
+				renderShiftStatus();
+			});
+			for (const m of MODULES) {
+				watchDayAttendance(m.id, today, (events) => {
+					attendanceByModule[m.id] = events;
+					renderShiftStatus();
+				});
+			}
 		} else if (claims.moduleId) {
 			watchModuleSalesToday(claims.moduleId, renderModuleTotal);
 		}
@@ -126,8 +209,14 @@ import AppLayout from "../layouts/AppLayout.astro";
 		color: var(--text-dim);
 	}
 
-	.today-summary {
+	.today-summary,
+	.shift-status {
 		margin-top: 1rem;
+	}
+
+	.shift-status h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1.1rem;
 	}
 
 	.today-summary h2 {
