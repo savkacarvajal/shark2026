@@ -38,6 +38,7 @@ import { PRODUCT_CATEGORIES } from "../../lib/constants";
 	import { watchProducts, createProduct, updateProduct, type Product } from "../../lib/firebase/products";
 	import { PRODUCT_CATEGORIES, type ProductCategory } from "../../lib/constants";
 	import { MOCK_PRODUCTS } from "../../lib/mockPreviewData";
+	import { escapeHtml } from "../../lib/escapeHtml";
 
 	function renderProducts(products: Product[]) {
 		const body = document.getElementById("products-body") as HTMLTableSectionElement;
@@ -46,11 +47,11 @@ import { PRODUCT_CATEGORIES } from "../../lib/constants";
 			const row = document.createElement("tr");
 			const categoryName = PRODUCT_CATEGORIES.find((c) => c.id === p.category)?.name ?? p.category;
 			row.innerHTML = `
-				<td>${p.sku}</td>
-				<td>${p.name}</td>
-				<td>${categoryName}</td>
+				<td>${escapeHtml(p.sku)}</td>
+				<td>${escapeHtml(p.name)}</td>
+				<td>${escapeHtml(categoryName)}</td>
 				<td>$${p.price.toLocaleString("es-CL")}</td>
-				<td><input type="text" value="${p.description ?? ""}" data-id="${p.id}" class="description-input" placeholder="Sin observaciones" /></td>
+				<td><input type="text" value="${escapeHtml(p.description ?? "")}" data-id="${p.id}" class="description-input" placeholder="Sin observaciones" /></td>
 				<td><input type="checkbox" ${p.active ? "checked" : ""} data-id="${p.id}" class="active-toggle" /></td>
 			`;
 			body.appendChild(row);

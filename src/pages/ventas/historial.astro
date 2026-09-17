@@ -35,6 +35,7 @@ import { MODULES } from "../../lib/constants";
 	import { requireAuth } from "../../lib/guards";
 	import { getModuleSales, getAllSales, type Sale } from "../../lib/firebase/sales";
 	import { MODULES, PAYMENT_METHODS } from "../../lib/constants";
+	import { escapeHtml } from "../../lib/escapeHtml";
 
 	function moduleName(id: string) {
 		return MODULES.find((m) => m.id === id)?.name ?? id;
@@ -49,14 +50,14 @@ import { MODULES } from "../../lib/constants";
 		body.innerHTML = "";
 		for (const sale of sales) {
 			const date = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date();
-			const itemsSummary = sale.items.map((i) => `${i.qty}× ${i.productName}`).join(", ");
+			const itemsSummary = sale.items.map((i) => `${i.qty}× ${escapeHtml(i.productName)}`).join(", ");
 			const row = document.createElement("tr");
 			row.innerHTML = `
 				<td>${date.toLocaleString("es-CL")}</td>
-				<td>${moduleName(sale.moduleId)}</td>
-				<td>${sale.sellerName}</td>
+				<td>${escapeHtml(moduleName(sale.moduleId))}</td>
+				<td>${escapeHtml(sale.sellerName)}</td>
 				<td>${itemsSummary}</td>
-				<td>${paymentName(sale.paymentMethod)}</td>
+				<td>${escapeHtml(paymentName(sale.paymentMethod))}</td>
 				<td>$${sale.total.toLocaleString("es-CL")}</td>
 			`;
 			body.appendChild(row);

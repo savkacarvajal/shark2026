@@ -74,6 +74,7 @@ import AppLayout from "../layouts/AppLayout.astro";
 	} from "../lib/firebase/schedule";
 	import { MODULES } from "../lib/constants";
 	import { MOCK_SELLERS, MOCK_SHIFTS } from "../lib/mockPreviewData";
+	import { escapeHtml } from "../lib/escapeHtml";
 
 	let weekOffset = 0;
 	let currentModuleId = "";
@@ -110,23 +111,23 @@ import AppLayout from "../layouts/AppLayout.astro";
 									${MODULES.map((m) => `<option value="${m.id}" ${shift?.moduleId === m.id ? "selected" : ""}>${m.name}</option>`).join("")}
 								</select>
 								<div class="shift-times">
-									<input type="time" class="shift-start" data-seller="${seller.id}" data-date="${d.date}" value="${shift?.start ?? ""}" />
-									<input type="time" class="shift-end" data-seller="${seller.id}" data-date="${d.date}" value="${shift?.end ?? ""}" />
+									<input type="time" class="shift-start" data-seller="${seller.id}" data-date="${d.date}" value="${escapeHtml(shift?.start ?? "")}" />
+									<input type="time" class="shift-end" data-seller="${seller.id}" data-date="${d.date}" value="${escapeHtml(shift?.end ?? "")}" />
 								</div>
 							</td>
 						`;
 					}
 					if (shift && shift.moduleId === currentModuleId) {
-						return `<td>${shift.start}–${shift.end}</td>`;
+						return `<td>${escapeHtml(shift.start)}–${escapeHtml(shift.end)}</td>`;
 					}
 					if (shift) {
 						const moduleName = MODULES.find((m) => m.id === shift.moduleId)?.name ?? shift.moduleId;
-						return `<td class="dim-cell">${moduleName}</td>`;
+						return `<td class="dim-cell">${escapeHtml(moduleName)}</td>`;
 					}
 					return `<td>—</td>`;
 				})
 				.join("");
-			row.innerHTML = `<td>${seller.name}</td>${cells}`;
+			row.innerHTML = `<td>${escapeHtml(seller.name)}</td>${cells}`;
 			scheduleBody.appendChild(row);
 		}
 
@@ -154,7 +155,7 @@ import AppLayout from "../layouts/AppLayout.astro";
 				(s) => `
 					<label class="seller-chip">
 						<input type="checkbox" ${s.active ? "checked" : ""} data-id="${s.id}" class="seller-active-toggle" />
-						${s.name}
+						${escapeHtml(s.name)}
 					</label>
 				`,
 			)
@@ -176,8 +177,8 @@ import AppLayout from "../layouts/AppLayout.astro";
 			const row = document.createElement("tr");
 			row.innerHTML = `
 				<td>${time.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</td>
-				<td>${e.sellerName}</td>
-				<td>${label}</td>
+				<td>${escapeHtml(e.sellerName)}</td>
+				<td>${escapeHtml(label)}</td>
 			`;
 			body.appendChild(row);
 		}
@@ -186,7 +187,7 @@ import AppLayout from "../layouts/AppLayout.astro";
 	function renderAttendanceSellerOptions() {
 		attendanceSellerSelect.innerHTML = sellers
 			.filter((s) => s.active)
-			.map((s) => `<option value="${s.id}">${s.name}</option>`)
+			.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`)
 			.join("");
 	}
 

@@ -68,6 +68,7 @@ import { MODULES } from "../lib/constants";
 	import { InsufficientStockError } from "../lib/firebase/sales";
 	import { PRODUCT_CATEGORIES, MODULES } from "../lib/constants";
 	import { MOCK_PRODUCTS, MOCK_STOCK } from "../lib/mockPreviewData";
+	import { escapeHtml } from "../lib/escapeHtml";
 
 	let unsubStock: (() => void) | null = null;
 	let unsubMermas: (() => void) | null = null;
@@ -87,8 +88,8 @@ import { MODULES } from "../lib/constants";
 			const qty = stock[p.id] ?? 0;
 			const row = document.createElement("tr");
 			row.innerHTML = `
-				<td>${p.name}</td>
-				<td>${categoryName}</td>
+				<td>${escapeHtml(p.name)}</td>
+				<td>${escapeHtml(categoryName)}</td>
 				<td>${qty}</td>
 				<td>
 					<input type="number" min="0" step="1" value="${qty}" data-id="${p.id}" class="qty-input" style="width:80px" />
@@ -108,7 +109,7 @@ import { MODULES } from "../lib/constants";
 	function renderMermaProductOptions() {
 		mermaProductSelect.innerHTML = products
 			.filter((p) => p.active)
-			.map((p) => `<option value="${p.id}">${p.name}</option>`)
+			.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`)
 			.join("");
 	}
 
@@ -120,9 +121,9 @@ import { MODULES } from "../lib/constants";
 			const row = document.createElement("tr");
 			row.innerHTML = `
 				<td>${date.toLocaleString("es-CL")}</td>
-				<td>${m.productName}</td>
-				<td>${m.qty}</td>
-				<td>${m.reason}</td>
+				<td>${escapeHtml(m.productName)}</td>
+				<td>${escapeHtml(m.qty)}</td>
+				<td>${escapeHtml(m.reason)}</td>
 			`;
 			body.appendChild(row);
 		}
