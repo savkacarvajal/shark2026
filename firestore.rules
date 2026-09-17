@@ -8,6 +8,31 @@ service cloud.firestore {
     function isAdmin() { return isSignedIn() && role() == 'admin'; }
     function isModule(moduleId) { return isSignedIn() && role() == 'module' && myModule() == moduleId; }
 
+    // Firestore rules can't sum an array (no reduce/loop), so this can't re-derive `total`
+    // from `items` + `discount` — but it still blocks impersonation, wrong-shaped docs and
+    // negative/garbage numbers, which is what a client-side-only check can't enforce.
+    function validSale(data, moduleId) {
+      return data.moduleId == moduleId
+        && data.createdByUid == request.auth.uid
+        && data.sellerId is string && data.sellerId.size() > 0
+        && data.sellerName is string && data.sellerName.size() > 0
+        && data.items is list && data.items.size() > 0
+        && data.discount is number && data.discount >= 0
+        && data.total is number && data.total >= 0
+        && data.paymentMethod in ['transferencia', 'transbank', 'efectivo', 'mixto', 'rapid']
+        && data.createdAt is timestamp;
+    }
+
+    function validMerma(data) {
+      return data.type == 'merma'
+        && data.createdByUid == request.auth.uid
+        && data.productId is string && data.productId.size() > 0
+        && data.productName is string && data.productName.size() > 0
+        && data.qty is number && data.qty > 0
+        && data.reason is string && data.reason.size() > 0
+        && data.createdAt is timestamp;
+    }
+
     match /modules/{moduleId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -20,12 +45,14 @@ service cloud.firestore {
       }
 
       match /sales/{saleId} {
-        allow read, create: if isAdmin() || isModule(moduleId);
+        allow read: if isAdmin() || isModule(moduleId);
+        allow create: if (isAdmin() || isModule(moduleId)) && validSale(request.resource.data, moduleId);
         allow update, delete: if isAdmin();
       }
 
       match /movements/{movementId} {
-        allow read, create: if isAdmin() || isModule(moduleId);
+        allow read: if isAdmin() || isModule(moduleId);
+        allow create: if (isAdmin() || isModule(moduleId)) && validMerma(request.resource.data);
         allow update, delete: if isAdmin();
       }
 
